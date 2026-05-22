@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimuServer", "MimuServer.csproj", "{1BDC015B-CE56-CF4D-14DD-51D8833FF353}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1BDC015B-CE56-CF4D-14DD-51D8833FF353}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BDC015B-CE56-CF4D-14DD-51D8833FF353}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BDC015B-CE56-CF4D-14DD-51D8833FF353}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BDC015B-CE56-CF4D-14DD-51D8833FF353}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3A71E5AF-F7C6-4D28-AEF2-C026BAF75E40}
+	EndGlobalSection
+EndGlobal
