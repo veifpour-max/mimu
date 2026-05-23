@@ -75,15 +75,24 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 var originUser = JsonSerializer.Deserialize<User>(authPacket.PayLoad);
                 if (originUser != null && !string.IsNullOrWhiteSpace(originUser.Username) && !string.IsNullOrWhiteSpace(originUser.Name))
                 {
-                    await repo.Register(originUser.Name, originUser.Username);
-                    await repo.SaveData();
-                    string serverResponse = "1";
-                    var jsonAnswer = JsonSerializer.Serialize(serverResponse);
-                    await writer.WriteLineAsync(jsonAnswer);
-                    lock (_lock) { _clients[originUser.Id] = client; }
-                    assignedId = originUser.Id;
-                    Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
-                    break;
+                    if (repo.FindByUsername(originUser.Username) == null)
+                    {
+                        await repo.AddUser(originUser);
+                        await repo.SaveData();
+                        string serverResponse = "1";
+                        var jsonAnswer = JsonSerializer.Serialize(serverResponse);
+                        await writer.WriteLineAsync(jsonAnswer);
+                        lock (_lock) { _clients[originUser.Id] = client; }
+                        assignedId = originUser.Id;
+                        Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
+                        break;
+
+                    }
+                    else
+                    {
+                        await writer.WriteLineAsync(JsonSerializer.Serialize("0"));
+                        break;
+                    }
 
                 }
             }
@@ -103,8 +112,9 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
             var received = await reader.ReadLineAsync();
             if (received == null) break;
             var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
-            if (msg.Type == PacketType.ChatMessage)
+            if (msg != null && msg.Type == PacketType.ChatMessage)
             {
+                Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");
                 var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
                 if (finalMsg != null)
                 {
@@ -120,7 +130,9 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 var SearchJson = JsonSerializer.Serialize(findingTheUser);
                 var ServerResponsing = new NetworkPacket(PacketType.ServerResponse, SearchJson);
                 var finalData = JsonSerializer.Serialize(ServerResponsing);
+
                 await writer.WriteLineAsync(finalData);
+                Console.WriteLine($"Ответ отправлен");
 
             }
         }
@@ -183,6 +195,7 @@ async Task SendPrivateMessage(Message msg, string rawJson)
                 var stream = targetClient.GetStream();
                 var writer = new StreamWriter(stream) { AutoFlush = true };
                 await writer.WriteLineAsync(rawJson);
+                Console.WriteLine($"Сообщение отправлено. {msg.ReceiverID}");
             }
             catch
             {

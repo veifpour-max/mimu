@@ -74,7 +74,7 @@ while (!IsRegistred)
                             else
                             {
                                 Console.WriteLine("Регистрация успешна");
-                                registerUser.Id = myFakeId;
+                                myFakeId = registerUser.Id ;
                                 IsRegistred = true;
                             }
                         }
@@ -111,7 +111,7 @@ while (!IsRegistred)
                             var serverAnswer = JsonSerializer.Deserialize<User>(serverAnswerNP.PayLoad);
                             if (serverAnswer != null && serverAnswer.Username == username)
                             {
-                                serverAnswer.Id = myFakeId;
+                                myFakeId = serverAnswer.Id;
                                 IsRegistred = true;
                             }
                         }
@@ -154,15 +154,19 @@ while (true)
                 await Task.Delay(1500);
                 continue;
             }
+
             var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
             var SendingToServer = JsonSerializer.Serialize(searchingUser);
+
+            ServerState.IsFlaged = false;
+
             await writer.WriteLineAsync(SendingToServer);
             Console.WriteLine("Запрос отправлен");
-            ServerState.IsFlaged = false;
             while (!ServerState.IsFlaged)
             {
                 await Task.Delay(100);
             }
+
             var deser = JsonSerializer.Deserialize<User>(ServerState.rawText);
             if (deser != null)
             {
@@ -181,42 +185,58 @@ while (true)
             var input = Console.ReadLine();
             if (!string.IsNullOrWhiteSpace(input))
             {
-                var targetUser = repo.FindByUsername(input);
+                var npMsg = new NetworkPacket(PacketType.SearchUser, input);
+                var npSer = JsonSerializer.Serialize(npMsg);
+                await writer.WriteLineAsync(npSer);
 
-                if (targetUser != null)
+                ServerState.IsFlaged = false;
+
+                while (!ServerState.IsFlaged)
                 {
-                    while (true)
+                    await Task.Delay(100);
+                }
+                
+                    
+                    var targetUser = JsonSerializer.Deserialize<User>(ServerState.rawText);
+                    Console.WriteLine("Десер успешный.");
+                    
+
+                    if (targetUser != null)
                     {
-                        Console.WriteLine("Введи 'exit' для выхода");
-                        Console.Write("Сообщение: ");
-                        var message = Console.ReadLine();
-                        if (message != null)
+                        while (true)
                         {
-                            var mesg = new Message(message, myFakeId, targetUser.Id, MessageType.Text);
-                            if (string.IsNullOrWhiteSpace(mesg.Text))
+                            Console.WriteLine("Введи 'exit' для выхода");
+                            Console.Write("Сообщение: ");
+                            var message = Console.ReadLine();
+                            if (message != null)
                             {
-                                continue;
-                            }
-                            string json = JsonSerializer.Serialize(mesg);
-                            var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
-                            if (message == "exit")
-                            {
-                                break;
-                            }
-                            var JsonMsg = JsonSerializer.Serialize(msgPacket);
-                            await writer.WriteLineAsync(JsonMsg);
-                            if (mesg.Status == MessageStatus.Delivered)
-                            {
-                                Console.WriteLine("[Client] Сообщение получено");
+                                var mesg = new Message(message, myFakeId, targetUser.Id, MessageType.Text);
+                                if (string.IsNullOrWhiteSpace(mesg.Text))
+                                {
+                                    continue;
+                                }
+                                string json = JsonSerializer.Serialize(mesg);
+                                var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
+                                if (message == "exit")
+                                {
+                                    break;
+                                }
+                                var JsonMsg = JsonSerializer.Serialize(msgPacket);
+                                await writer.WriteLineAsync(JsonMsg);
+                                Console.WriteLine($"Я отправил пакет типа {msgPacket.Type}");
+                                if (mesg.Status == MessageStatus.Delivered)
+                                {
+                                    Console.WriteLine("[Client] Сообщение получено");
+                                }
                             }
                         }
                     }
-                }
-                else
-                {
-                    Console.WriteLine("Пользователь не найден локально");
-                }
+                    else
+                    {
+                        Console.WriteLine("Пользователь не найден локально");
+                    }
 
+                
             }
         }
 
@@ -274,20 +294,21 @@ async Task StartReceiving(NetworkStream stream)
     {
         try
         {
-
+            Console.WriteLine("Поток слушает трубу..");
             var receivedMsg = await reader.ReadLineAsync();
             if (receivedMsg == null) throw new Exception("Соединение разорвано");
+            Console.WriteLine($"Поток поймал: " + receivedMsg);
             var msg = JsonSerializer.Deserialize<NetworkPacket>(receivedMsg);
-            if (msg != null) // тут проверка на тип необязательна
+            Console.WriteLine($" msg=null? {msg == null} | msg.Type {msg?.Type} | Ожидается: {PacketType.ServerResponse}");
+
+            if (msg != null && msg.Type == PacketType.ChatMessage)
             {
                 if (!string.IsNullOrWhiteSpace(msg.PayLoad))
-                {
-                    ServerState.IsFlaged = false;
-                    while (!ServerState.IsFlaged)
-                    {
-                        await Task.Delay(200);
-                    }
-                    var finalMsg = JsonSerializer.Deserialize<Message>(ServerState.rawText);
+                {                            
+                    Console.WriteLine($"Ответ принят. {(int)msg.Type} | {msg.PayLoad}");
+                    // как я понял у нас не работает отправка сообщений из-за того что сервер отправляет сообщение через метод, в котором отправляется чисто джсон самого сообщенрие, соответственно вусиериализатор не понимает где искать .payload и ломается.
+                    var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
+                    Console.WriteLine($"Ответ десериализован");
                     if (finalMsg != null)
                     {
                         if (finalMsg.SenderID == myFakeId)
@@ -314,7 +335,7 @@ async Task StartReceiving(NetworkStream stream)
 
             if (msg != null && msg.Type == PacketType.ServerResponse)
             {
-                Console.WriteLine("[DEBUG] Пакет от сервера пришел в фоновый поток"); 
+                Console.WriteLine("[DEBUG] Пакет от сервера пришел в фоновый поток");
                 ServerState.rawText = msg.PayLoad;
                 ServerState.IsFlaged = true;
             }
@@ -323,7 +344,6 @@ async Task StartReceiving(NetworkStream stream)
         {
             Console.WriteLine($"Ошибка! {ex.Message}");
             break;
-
         }
 
     }
