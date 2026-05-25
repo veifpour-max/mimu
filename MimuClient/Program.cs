@@ -1,10 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
+
 
 TcpClient client = new TcpClient();
 
@@ -15,6 +17,7 @@ IStorage mainstorage = new FileStorage();
 // добавил заново тк я даже проверить код не смогу если их нет.
 ChatManager chatManager = new ChatManager(mainstorage);
 UsersRepository repo = new UsersRepository(mainstorage);
+
 
 await client.ConnectAsync("127.0.0.1", 5000);
 Console.WriteLine("[CLIENT] Вы подключены к серверу Mimu!");
@@ -47,9 +50,9 @@ while (!IsRegistred)
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name))
             {
                 var registerUser = new User(name, username);
-                var regJson = JsonSerializer.Serialize(registerUser);
+                var regJson = Deser.SerJson(registerUser);
                 var regDeJson = new NetworkPacket(PacketType.Register, regJson);
-                var finalAuth = JsonSerializer.Serialize(regDeJson);
+                var finalAuth = Deser.SerJson(regDeJson);
                 {
                     if (finalAuth != null)
                     {
@@ -63,9 +66,9 @@ while (!IsRegistred)
                     var waitingForServerAnswer = await reader.ReadLineAsync();
                     if (waitingForServerAnswer != null)
                     {
-                        var cacheServerAnswer = JsonSerializer.Deserialize<string>(waitingForServerAnswer);
+                        var cacheServerAnswer = Deser.DeserJson<string>(waitingForServerAnswer);
 
-                        if (!string.IsNullOrWhiteSpace(cacheServerAnswer))
+                        if (!shTools.check(cacheServerAnswer))
                         {
                             if (cacheServerAnswer == null || cacheServerAnswer != "1")
                             {
@@ -98,17 +101,16 @@ while (!IsRegistred)
                 if (!string.IsNullOrWhiteSpace(username))
                 {
                     var authPacket = new NetworkPacket(PacketType.Auth, myFakeId.ToString());
-                    string jsonSerialize = JsonSerializer.Serialize(authPacket);
+                    string jsonSerialize = Deser.SerJson(authPacket);
                     await writer.WriteLineAsync(jsonSerialize);
                     var readed = await reader.ReadLineAsync();
                     if (readed != null)
                     {
 
-                        var serverAnswerNP = JsonSerializer.Deserialize<NetworkPacket>(readed);
-                        // пиздец потратил 15 минут на утилиту которая сама все десериализует и стоит написать dt.DeserNP(джсон) и все будет чики пуки но не вышло...
+                        var serverAnswerNP = Deser.DeserJson<NetworkPacket>(readed);
                         if (serverAnswerNP != null && serverAnswerNP.Type == PacketType.ServerResponse)
                         {
-                            var serverAnswer = JsonSerializer.Deserialize<User>(serverAnswerNP.PayLoad);
+                            var serverAnswer = Deser.DeserJson<User>(serverAnswerNP.PayLoad);
                             if (serverAnswer != null && serverAnswer.Username == username)
                             {
                                 myFakeId = serverAnswer.Id;
@@ -156,7 +158,7 @@ while (true)
             }
 
             var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
-            var SendingToServer = JsonSerializer.Serialize(searchingUser);
+            var SendingToServer = Deser.SerJson(searchingUser);
 
             ServerState.IsFlaged = false;
 
@@ -167,7 +169,7 @@ while (true)
                 await Task.Delay(100);
             }
 
-            var deser = JsonSerializer.Deserialize<User>(ServerState.rawText);
+            var deser = Deser.DeserJson<User>(ServerState.rawText);
             if (deser != null)
             {
                 Console.WriteLine($"[ПОИСК] Найден: {deser.Name} | @{deser.Username}");
@@ -186,7 +188,7 @@ while (true)
             if (!string.IsNullOrWhiteSpace(input))
             {
                 var npMsg = new NetworkPacket(PacketType.SearchUser, input);
-                var npSer = JsonSerializer.Serialize(npMsg);
+                var npSer = Deser.SerJson(npMsg);
                 await writer.WriteLineAsync(npSer);
 
                 ServerState.IsFlaged = false;
@@ -197,7 +199,7 @@ while (true)
                 }
                 
                     
-                    var targetUser = JsonSerializer.Deserialize<User>(ServerState.rawText);
+                    var targetUser = Deser.DeserJson<User>(ServerState.rawText);
                     Console.WriteLine("Десер успешный.");
                     
 
@@ -215,15 +217,14 @@ while (true)
                                 {
                                     continue;
                                 }
-                                string json = JsonSerializer.Serialize(mesg);
+                                string json = Deser.SerJson(mesg); // чудо - си шарп часто понимает что мы отправляем
                                 var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
                                 if (message == "exit")
                                 {
                                     break;
                                 }
-                                var JsonMsg = JsonSerializer.Serialize(msgPacket);
+                                var JsonMsg = Deser.SerJson(msgPacket);
                                 await writer.WriteLineAsync(JsonMsg);
-                                Console.WriteLine($"Я отправил пакет типа {msgPacket.Type}");
                                 if (mesg.Status == MessageStatus.Delivered)
                                 {
                                     Console.WriteLine("[Client] Сообщение получено");
@@ -294,21 +295,15 @@ async Task StartReceiving(NetworkStream stream)
     {
         try
         {
-            Console.WriteLine("Поток слушает трубу..");
             var receivedMsg = await reader.ReadLineAsync();
             if (receivedMsg == null) throw new Exception("Соединение разорвано");
-            Console.WriteLine($"Поток поймал: " + receivedMsg);
-            var msg = JsonSerializer.Deserialize<NetworkPacket>(receivedMsg);
-            Console.WriteLine($" msg=null? {msg == null} | msg.Type {msg?.Type} | Ожидается: {PacketType.ServerResponse}");
+            var msg = Deser.DeserJson<NetworkPacket>(receivedMsg);
 
             if (msg != null && msg.Type == PacketType.ChatMessage)
             {
-                if (!string.IsNullOrWhiteSpace(msg.PayLoad))
-                {                            
-                    Console.WriteLine($"Ответ принят. {(int)msg.Type} | {msg.PayLoad}");
-                    // как я понял у нас не работает отправка сообщений из-за того что сервер отправляет сообщение через метод, в котором отправляется чисто джсон самого сообщенрие, соответственно вусиериализатор не понимает где искать .payload и ломается.
-                    var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
-                    Console.WriteLine($"Ответ десериализован");
+                if (!shTools.check(msg.PayLoad)) // чистая экономия // перевод - sh = short
+                {                           
+                    var finalMsg = Deser.DeserJson<Message>(msg.PayLoad);
                     if (finalMsg != null)
                     {
                         if (finalMsg.SenderID == myFakeId)
@@ -348,18 +343,7 @@ async Task StartReceiving(NetworkStream stream)
 
     }
 }
-class ServerState
-{
-    public static bool IsFlaged { get; set; }
-    public static string? rawText { get; set; }
 
-    public ServerState(bool isflaged, string rawtext)
-    {
-        IsFlaged = isflaged;
-        rawText = rawtext;
-    }
-
-}
 
 
 
