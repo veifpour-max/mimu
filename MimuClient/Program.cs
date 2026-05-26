@@ -8,7 +8,7 @@ using LocalMimu.Models;
 using LocalMimu.Repositories;
 
 
-TcpClient client = new TcpClient();
+NetworkService net = new NetworkService();
 
 Guid myFakeId = Guid.NewGuid();
 
@@ -18,12 +18,8 @@ IStorage mainstorage = new FileStorage();
 ChatManager chatManager = new ChatManager(mainstorage);
 UsersRepository repo = new UsersRepository(mainstorage);
 
-
-await client.ConnectAsync("127.0.0.1", 5000);
+await net.ConnectAsync("127.0.0.1", 5000);
 Console.WriteLine("[CLIENT] Вы подключены к серверу Mimu!");
-using var stream = client.GetStream();
-var reader = new StreamReader(stream);
-var writer = new StreamWriter(stream) { AutoFlush = true };
 
 bool IsRegistred = false;
 
@@ -38,7 +34,6 @@ while (!IsRegistred)
     {
         break;
     }
-
     if (!string.IsNullOrWhiteSpace(choice))
     {
         if (choice == "2")
@@ -62,13 +57,13 @@ while (!IsRegistred)
                 }
                 if (regDeJson != null)
                 {
-                    await writer.WriteLineAsync(finalAuth);
-                    var waitingForServerAnswer = await reader.ReadLineAsync();
+                    await net.Writer.WriteLineAsync(finalAuth);
+                    var waitingForServerAnswer = await net.Reader.ReadLineAsync();
                     if (waitingForServerAnswer != null)
                     {
                         var cacheServerAnswer = Deser.DeserJson<string>(waitingForServerAnswer);
 
-                        if (!shTools.check(cacheServerAnswer))
+                        if (shTools.check(cacheServerAnswer))
                         {
                             if (cacheServerAnswer == null || cacheServerAnswer != "1")
                             {
@@ -102,8 +97,8 @@ while (!IsRegistred)
                 {
                     var authPacket = new NetworkPacket(PacketType.Auth, myFakeId.ToString());
                     string jsonSerialize = Deser.SerJson(authPacket);
-                    await writer.WriteLineAsync(jsonSerialize);
-                    var readed = await reader.ReadLineAsync();
+                    await net.Writer.WriteLineAsync(jsonSerialize);
+                    var readed = await net.Reader.ReadLineAsync();
                     if (readed != null)
                     {
 
@@ -129,7 +124,7 @@ while (!IsRegistred)
     }
 }
 
-_ = StartReceiving(stream);
+net.StartListening();
 
 while (true)
 {
@@ -162,7 +157,7 @@ while (true)
 
             ServerState.IsFlaged = false;
 
-            await writer.WriteLineAsync(SendingToServer);
+            await net.Writer.WriteLineAsync(SendingToServer);
             Console.WriteLine("Запрос отправлен");
             while (!ServerState.IsFlaged)
             {
@@ -189,7 +184,7 @@ while (true)
             {
                 var npMsg = new NetworkPacket(PacketType.SearchUser, input);
                 var npSer = Deser.SerJson(npMsg);
-                await writer.WriteLineAsync(npSer);
+                await net.Writer.WriteLineAsync(npSer);
 
                 ServerState.IsFlaged = false;
 
@@ -224,7 +219,7 @@ while (true)
                                     break;
                                 }
                                 var JsonMsg = Deser.SerJson(msgPacket);
-                                await writer.WriteLineAsync(JsonMsg);
+                                await net.Writer.WriteLineAsync(JsonMsg);
                                 if (mesg.Status == MessageStatus.Delivered)
                                 {
                                     Console.WriteLine("[Client] Сообщение получено");
@@ -288,68 +283,3 @@ while (true)
         await Task.Delay(250);
     }
 }
-
-async Task StartReceiving(NetworkStream stream)
-{
-    while (true)
-    {
-        try
-        {
-            var receivedMsg = await reader.ReadLineAsync();
-            if (receivedMsg == null) throw new Exception("Соединение разорвано");
-            var msg = Deser.DeserJson<NetworkPacket>(receivedMsg);
-
-            if (msg != null && msg.Type == PacketType.ChatMessage)
-            {
-                if (!shTools.check(msg.PayLoad)) // чистая экономия // перевод - sh = short
-                {                           
-                    var finalMsg = Deser.DeserJson<Message>(msg.PayLoad);
-                    if (finalMsg != null)
-                    {
-                        if (finalMsg.SenderID == myFakeId)
-                        {
-                            Console.WriteLine($"{finalMsg.SentAt:HH:mm:ss} | Вы: | {finalMsg.Text} ");
-
-                        }
-                        var user = repo.GetUserById(finalMsg.SenderID);
-
-                        if (user != null)
-                        {
-                            Console.WriteLine($"{finalMsg.SentAt:HH:mm:ss} | {user.Username}: | {finalMsg.Text} ");
-                        }
-
-                        else
-                        {
-                            Console.WriteLine($"{finalMsg.SentAt:HH:mm:ss} | {finalMsg.SenderID.ToString().Substring(0, 4)}: | {finalMsg.Text} ");
-                        }
-
-                    }
-                }
-            }
-
-
-            if (msg != null && msg.Type == PacketType.ServerResponse)
-            {
-                Console.WriteLine("[DEBUG] Пакет от сервера пришел в фоновый поток");
-                ServerState.rawText = msg.PayLoad;
-                ServerState.IsFlaged = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Ошибка! {ex.Message}");
-            break;
-        }
-
-    }
-}
-
-
-
-
-
-
-
-
-
-
