@@ -70,6 +70,11 @@ public class NetworkService
         
         
     }
+    public async Task RequestChatsAsync(Guid myId)
+    {
+        var send = new NetworkPacket(PacketType.GetChats, myId.ToString());
+        await SendPacket(send);
+    }
     public void StartListening()
     {
         _ = StartReceiving();
