@@ -45,84 +45,45 @@ while (!IsRegistred)
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name))
             {
                 var registerUser = new User(name, username);
-                var regJson = Deser.SerJson(registerUser);
-                var regDeJson = new NetworkPacket(PacketType.Register, regJson);
-                var finalAuth = Deser.SerJson(regDeJson);
+                var success = await net.RegisterAsync(registerUser);
+                if (success)
                 {
-                    if (finalAuth != null)
-                    {
-                        regDeJson.Type = PacketType.Register;
-                    }
-
-                }
-                if (regDeJson != null)
-                {
-                    await net.Writer.WriteLineAsync(finalAuth);
-                    var waitingForServerAnswer = await net.Reader.ReadLineAsync();
-                    if (waitingForServerAnswer != null)
-                    {
-                        var cacheServerAnswer = Deser.DeserJson<string>(waitingForServerAnswer);
-
-                        if (shTools.check(cacheServerAnswer))
-                        {
-                            if (cacheServerAnswer == null || cacheServerAnswer != "1")
-                            {
-                                Console.WriteLine("Ошибка. Не удалось войти");
-                            }
-                            else
-                            {
-                                Console.WriteLine("Регистрация успешна");
-                                myFakeId = registerUser.Id ;
-                                IsRegistred = true;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Такой пользователь уже существует!");
-                }
-
-
-
-            }
-        }
-        if (choice == "1")
-        {
-            Console.Write("Введи свой username: ");
-            var username = Console.ReadLine();
-            if (username != null)
-            {
-                if (!string.IsNullOrWhiteSpace(username))
-                {
-                    var authPacket = new NetworkPacket(PacketType.Auth, myFakeId.ToString());
-                    string jsonSerialize = Deser.SerJson(authPacket);
-                    await net.Writer.WriteLineAsync(jsonSerialize);
-                    var readed = await net.Reader.ReadLineAsync();
-                    if (readed != null)
-                    {
-
-                        var serverAnswerNP = Deser.DeserJson<NetworkPacket>(readed);
-                        if (serverAnswerNP != null && serverAnswerNP.Type == PacketType.ServerResponse)
-                        {
-                            var serverAnswer = Deser.DeserJson<User>(serverAnswerNP.PayLoad);
-                            if (serverAnswer != null && serverAnswer.Username == username)
-                            {
-                                myFakeId = serverAnswer.Id;
-                                IsRegistred = true;
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Ошибка входа. Убедитесь что все введено верно");
-                        }
-                    }
-
+                    myFakeId = registerUser.Id;
+                    IsRegistred = true;
                 }
             }
         }
     }
+    else
+    {
+        Console.WriteLine("Такой пользователь уже существует!");
+    }
+
+    if (choice == "1")
+    {
+        Console.Write("Введи свой username: ");
+        var username = Console.ReadLine();
+        if (username != null)
+        {
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                var serverAnswer = await net.AuthenticateAsync(username);
+                if (serverAnswer != null)
+                {
+                    myFakeId = serverAnswer.Id;
+                    IsRegistred = true;
+                }
+                else
+                {
+                    Console.WriteLine("Ошибка входа. Убедитесь что все введено верно");
+                }
+            }
+
+        }
+    }
 }
+
+
 
 net.StartListening();
 
@@ -153,11 +114,10 @@ while (true)
             }
 
             var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
-            var SendingToServer = Deser.SerJson(searchingUser);
 
             ServerState.IsFlaged = false;
 
-            await net.Writer.WriteLineAsync(SendingToServer);
+            await net.SendPacket(searchingUser);
             Console.WriteLine("Запрос отправлен");
             while (!ServerState.IsFlaged)
             {
@@ -183,8 +143,7 @@ while (true)
             if (!string.IsNullOrWhiteSpace(input))
             {
                 var npMsg = new NetworkPacket(PacketType.SearchUser, input);
-                var npSer = Deser.SerJson(npMsg);
-                await net.Writer.WriteLineAsync(npSer);
+                await net.SendPacket(npMsg);
 
                 ServerState.IsFlaged = false;
 
@@ -192,56 +151,48 @@ while (true)
                 {
                     await Task.Delay(100);
                 }
-                
-                    
-                    var targetUser = Deser.DeserJson<User>(ServerState.rawText);
-                    Console.WriteLine("Десер успешный.");
-                    
 
-                    if (targetUser != null)
-                    {
-                        while (true)
+
+                var targetUser = Deser.DeserJson<User>(ServerState.rawText);
+                Console.WriteLine("Десер успешный.");
+
+
+                if (targetUser != null)
+                {
+                    Console.WriteLine($"=== Чат с @{targetUser.Username} ===");
+                    Console.WriteLine("Введи 'exit' для выхода");
+                    while (true)
+                    {       
+                        Console.Write("Вы: ");
+                        var message = Console.ReadLine();
+                        if (message != null)
                         {
-                            Console.WriteLine("Введи 'exit' для выхода");
-                            Console.Write("Сообщение: ");
-                            var message = Console.ReadLine();
-                            if (message != null)
+                            var mesg = new Message(message, myFakeId, targetUser.Id, MessageType.Text);
+                            if (string.IsNullOrWhiteSpace(mesg.Text))
                             {
-                                var mesg = new Message(message, myFakeId, targetUser.Id, MessageType.Text);
-                                if (string.IsNullOrWhiteSpace(mesg.Text))
-                                {
-                                    continue;
-                                }
-                                string json = Deser.SerJson(mesg); // чудо - си шарп часто понимает что мы отправляем
-                                var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
-                                if (message == "exit")
-                                {
-                                    break;
-                                }
-                                var JsonMsg = Deser.SerJson(msgPacket);
-                                await net.Writer.WriteLineAsync(JsonMsg);
-                                if (mesg.Status == MessageStatus.Delivered)
-                                {
-                                    Console.WriteLine("[Client] Сообщение получено");
-                                }
+                                continue;
                             }
+                            string json = Deser.SerJson(mesg);
+                            var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
+                            if (message == "exit")
+                            {
+                                break;
+                            }
+                            await net.SendPacket(msgPacket);
+                            Console.WriteLine("[Client] Сообщение отправлено");
                         }
                     }
-                    else
-                    {
-                        Console.WriteLine("Пользователь не найден локально");
-                    }
+                }
+                else
+                {
+                    Console.WriteLine("Пользователь не найден локально");
+                }
 
-                
+
             }
         }
 
-
-
-
-
-
-        if (choice == "3")
+        if (choice == "3") // TODO: Ликвидировать локальное использование.
         {
 
             Console.WriteLine("Ваши чаты: ");

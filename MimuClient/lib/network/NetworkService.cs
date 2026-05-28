@@ -8,16 +8,13 @@ public class NetworkService
     private StreamReader _reader;
     private StreamWriter _writer;
 
-    public StreamReader Reader => _reader;
-    public StreamWriter Writer => _writer; // что делает =>? указывает?
-
     public async Task ConnectAsync(string ip, int port)
     {
         _client = new TcpClient();
         await _client.ConnectAsync(ip, port);
         var stream = _client.GetStream();
         _reader = new StreamReader(stream);
-        _writer = new StreamWriter(stream) {AutoFlush = true};
+        _writer = new StreamWriter(stream) { AutoFlush = true };
     }
     public async Task SendPacket(NetworkPacket packet)
     {
@@ -29,6 +26,49 @@ public class NetworkService
     {
         var send = Deser.SerJson(info);
         await _writer.WriteLineAsync(send);
+    }
+    public async Task<bool> RegisterAsync(User newUser)
+    {
+        var serializedUser = Deser.SerJson(newUser);
+        var regJson = new NetworkPacket(PacketType.Register, serializedUser);
+        var finalUser = Deser.SerJson(regJson);
+        await _writer.WriteLineAsync(finalUser);
+        var waiting = await _reader.ReadLineAsync();
+        if (!shTools.check(waiting))
+        {
+            Console.WriteLine("Что-то пошло не так..");
+            return false;
+        }
+        var finalAnswer = Deser.DeserJson<string>(waiting);
+        if (finalAnswer == "1")
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public async Task<User?> AuthenticateAsync(string username)
+    {
+        var userJson = Deser.SerJson(username);
+        var authPacket = new NetworkPacket(PacketType.Auth, userJson);
+        var finalPacket = Deser.SerJson(authPacket);
+        await _writer.WriteLineAsync(finalPacket);
+        var waiting = await _reader.ReadLineAsync();
+
+        if (!shTools.check(waiting))
+        {
+            Console.WriteLine("Что-то пошло не так...");
+            return null;
+        }
+        var deserAnswer = Deser.DeserJson<NetworkPacket>(waiting);
+        if(deserAnswer != null)
+        {
+            var desering = Deser.DeserJson<User>(deserAnswer.PayLoad);
+            return desering;
+        }
+        return null;
+        
+        
     }
     public void StartListening()
     {

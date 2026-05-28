@@ -49,10 +49,11 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
 
             if (authPacket != null && authPacket.Type == PacketType.Auth)
             {
-                Guid incomingId = Guid.Parse(authPacket.PayLoad);
-                if (incomingId != Guid.Empty)
+                var incomingUsername = authPacket.PayLoad;
+               
+                if (!string.IsNullOrWhiteSpace(incomingUsername))
                 {
-                    var result = repo.GetUserById(incomingId);
+                    var result = await repo.AuthAsync(incomingUsername);
                     await repo.SaveData();
                     if (result != null)
                     {
