@@ -47,11 +47,8 @@ class ChatManager
 
     public async Task SaveMsg(Message msg)
     {
-        if (!string.IsNullOrWhiteSpace(msg.Text))
-        {
-            _allMessages.Add(msg);
-            await SaveData();
-        }
+        _allMessages.Add(msg);
+        await SaveData();
     }
 
     public async Task LoadData()

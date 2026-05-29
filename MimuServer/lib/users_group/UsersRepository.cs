@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.SqlTypes;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -15,13 +16,11 @@ public class UsersRepository
     public UsersRepository(IStorage storage)
     {
         _storage = storage;
-        LoadData().Wait();
-
-        if (!_users.Values.Any(u => u.Username.ToLower() == "alex"))
-        {
-            AddUser(new User("саша", "alex")).Wait(); // тут вроде решение
-            AddUser(new User("сашаклон", "alextest")).Wait();
-        }
+        //if (!_users.Values.Any(u => u.Username.ToLower() == "alex"))
+       // {
+       //     AddUser(new User("саша", "alex")).Wait(); // тут вроде решение
+       //     AddUser(new User("сашаклон", "alextest")).Wait();
+      //  }
 
     }
 
@@ -39,7 +38,7 @@ public class UsersRepository
 
     public void DeleteUser(User user)
     {
-        _users.Remove(user.Id, out user); // требует out, надеюсь работает
+        _users.Remove(user.Id, out user); 
     }
 
     public void AnonymousMode()
@@ -73,7 +72,7 @@ public class UsersRepository
         string json = JsonSerializer.Serialize(_users);
         await _storage.Save(_path, json);
     }
-    private async Task LoadData()
+    public async Task LoadData()
     {
         if (!await _storage.Exists(_path)) return;
         string json = await _storage.Load(_path); 

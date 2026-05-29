@@ -7,7 +7,8 @@ public enum PacketType
     SearchUser,
     ChatMessage,
     GroupMessage,
-    ServerResponse
+    ServerResponse,
+    GetChats
 
 }
 

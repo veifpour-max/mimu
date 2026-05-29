@@ -50,7 +50,7 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
             if (authPacket != null && authPacket.Type == PacketType.Auth)
             {
                 var incomingUsername = authPacket.PayLoad;
-               
+
                 if (!string.IsNullOrWhiteSpace(incomingUsername))
                 {
                     var result = await repo.AuthAsync(incomingUsername);
@@ -135,6 +135,19 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 await writer.WriteLineAsync(finalData);
                 Console.WriteLine($"Ответ отправлен");
 
+            }
+            if (msg != null && msg.Type == PacketType.GetChats)
+            {
+                Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
+                Guid desering = Guid.Parse(msg.PayLoad);
+                List<Guid> checking = chatManager.GetContactIds(desering);
+
+                var jsonList = Deser.SerJson(checking);
+                var packet = new NetworkPacket(PacketType.ServerResponse, jsonList);
+                var finalpacket = Deser.SerJson(packet);
+
+                await writer.WriteLineAsync(finalpacket);
+                Console.WriteLine($"Отправлен список чатов ({checking.Count} шт.) для {desering}");
             }
         }
         catch

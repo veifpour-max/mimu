@@ -162,7 +162,7 @@ while (true)
                     Console.WriteLine($"=== Чат с @{targetUser.Username} ===");
                     Console.WriteLine("Введи 'exit' для выхода");
                     while (true)
-                    {       
+                    {
                         Console.Write("Вы: ");
                         var message = Console.ReadLine();
                         if (message != null)
@@ -192,45 +192,54 @@ while (true)
             }
         }
 
-        if (choice == "3") // TODO: Ликвидировать локальное использование.
+        if (choice == "3")
         {
+           var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
+           await net.SendPacket(newPacket);
 
-            Console.WriteLine("Ваши чаты: ");
+           ServerState.IsFlaged = false;
 
-            await repo.LoadData();
-
-            var chats = chatManager.GetContactIds(myFakeId);
-            if (chats.Count == 0)
+            while (!ServerState.IsFlaged)
             {
-                Console.WriteLine("У вас еще нет переписок");
+                await Task.Delay(100);
+            }
+
+            var contactId = Deser.DeserJson<List<Guid>>(ServerState.rawText);
+
+            if(contactId != null && contactId.Count > 0)
+            {
+                Console.WriteLine("Ваши чаты");
+
+                foreach(var id in contactId)
+                {
+                    Console.WriteLine($"Чат с пользователем {id.ToString().Substring(0,6)}");
+                }
             }
             else
             {
-                foreach (var id in chats)
-                {
-                    var contact = repo.GetUserById(id);
-                    if (contact != null)
-                    {
-                        var lastMsg = chatManager.GetMessagesFromContact(myFakeId, contact.Id).LastOrDefault();
-
-                        if (lastMsg != null && lastMsg.Text != null)
-                        {
-                            string shortmsg = lastMsg.Text.Length > 7 ? lastMsg.Text.Substring(0, 7) + ".." : lastMsg.Text;
-
-                            Console.WriteLine($"{id}. {contact.Name} | {contact.Username} | {contact.Status}: {shortmsg}..");
-                        }
-                        Console.Write("Введите номер переписки чтобы продолжить ее: ");
-                        var chatNumber = Console.ReadLine();
-                    }
-
-                }
+                Console.WriteLine("Активных переписок нет");
             }
-        }
-    }
+            
 
+
+
+            
+
+            
+
+
+
+        }
+
+        
+
+        
+
+
+    }
     catch (Exception ex)
     {
-        Console.WriteLine($"Ошибка: {ex.Message}");
-        await Task.Delay(250);
+    Console.WriteLine($"Ошибка: {ex.Message}");
+    await Task.Delay(250);
     }
 }
