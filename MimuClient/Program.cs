@@ -204,7 +204,7 @@ while (true)
                 await Task.Delay(100);
             }
 
-            var contactId = Deser.DeserJson<List<Guid>>(ServerState.rawText);
+            var contactId = Deser.DeserJson<List<User>>(ServerState.rawText);
 
             if(contactId != null && contactId.Count > 0)
             {
@@ -212,7 +212,7 @@ while (true)
 
                 foreach(var id in contactId)
                 {
-                    Console.WriteLine($"Чат с пользователем {id.ToString().Substring(0,6)}");
+                    Console.WriteLine($"Чат с пользователем @{id.Username} | {id.Name}");
                 }
             }
             else

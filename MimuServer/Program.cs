@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
@@ -141,8 +142,18 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
                 Guid desering = Guid.Parse(msg.PayLoad);
                 List<Guid> checking = chatManager.GetContactIds(desering);
+                List<User> contactUser = new List<User>();
 
-                var jsonList = Deser.SerJson(checking);
+                foreach(var user in checking)
+                {
+                    var u = repo.GetUserById(user);
+                    if(u != null)
+                    {
+                        contactUser.Add(u);
+                    }
+                }
+
+                var jsonList = Deser.SerJson(contactUser);
                 var packet = new NetworkPacket(PacketType.ServerResponse, jsonList);
                 var finalpacket = Deser.SerJson(packet);
 
