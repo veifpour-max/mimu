@@ -67,6 +67,13 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                         Console.WriteLine($"[Server] Юзер {assignedId} получил ответ сервера.");
                         break;
                     }
+                    else if(result == null)
+                    {
+                        var response = new NetworkPacket(PacketType.ServerResponse, "null");
+                        var finalPacket = Deser.SerJson(response);
+                        await writer.WriteLineAsync(finalPacket);
+                        Console.WriteLine($"Неудачная попытка входа для {incomingUsername}");
+                    }
                 }
 
 
@@ -118,11 +125,22 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
             {
                 Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");
                 var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
+
                 if (finalMsg != null)
                 {
-                    await SendPrivateMessage(finalMsg, received);
-                    await chatManager.SaveMsg(finalMsg);
-                    Console.WriteLine($"[{finalMsg.SentAt:HH:mm:ss}] от {finalMsg.SenderID} до {finalMsg.ReceiverID}: {finalMsg.Text}");
+                    var sender = repo.GetUserById(finalMsg.SenderID);
+                    if (sender != null)
+                    {
+                        finalMsg.SenderUsername = sender.Username;
+                        var finalAnswermsg = Deser.SerJson(finalMsg);
+                        msg.PayLoad = finalAnswermsg;
+                        var final = Deser.SerJson(msg);
+                        await SendPrivateMessage(finalMsg, final);
+                        await chatManager.SaveMsg(finalMsg);
+                        Console.WriteLine($"[{finalMsg.SentAt:HH:mm:ss}] от {finalMsg.SenderID} до {finalMsg.ReceiverID}: {finalMsg.Text}");
+
+                    }
+
                 }
             }
 
@@ -144,10 +162,10 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 List<Guid> checking = chatManager.GetContactIds(desering);
                 List<User> contactUser = new List<User>();
 
-                foreach(var user in checking)
+                foreach (var user in checking)
                 {
                     var u = repo.GetUserById(user);
-                    if(u != null)
+                    if (u != null)
                     {
                         contactUser.Add(u);
                     }

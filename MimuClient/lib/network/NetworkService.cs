@@ -49,8 +49,7 @@ public class NetworkService
 
     public async Task<User?> AuthenticateAsync(string username)
     {
-        var userJson = Deser.SerJson(username);
-        var authPacket = new NetworkPacket(PacketType.Auth, userJson);
+        var authPacket = new NetworkPacket(PacketType.Auth, username);
         var finalPacket = Deser.SerJson(authPacket);
         await _writer.WriteLineAsync(finalPacket);
         var waiting = await _reader.ReadLineAsync();
@@ -93,11 +92,12 @@ public class NetworkService
                 {
                     if (shTools.check(msg.PayLoad))
                     {
+                        
                         var finalMsg = Deser.DeserJson<Message>(msg.PayLoad);
                         if (finalMsg != null)
                         {
                             // удалим пока вызовы некоторые.
-                            Console.WriteLine($"{finalMsg.SentAt:HH:mm:ss} | {finalMsg.SenderID.ToString().Substring(0, 4)}: | {finalMsg.Text} ");
+                            Console.WriteLine($"{finalMsg.SentAt:HH:mm:ss} | {finalMsg.SenderUsername}: | {finalMsg.Text} ");
                         }
                     }
                 }

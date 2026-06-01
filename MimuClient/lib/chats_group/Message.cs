@@ -12,7 +12,7 @@ class Message
    public MessageStatus Status {get; set;}
    public Guid ReceiverID {get; set;}
    public MessageType Type {get; set;}
-
+   public string? SenderUsername {get; set;}
    public Message(){}
 
    public Message(string text, Guid senderId, Guid receiverId, MessageType type) 

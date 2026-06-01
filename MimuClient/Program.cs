@@ -7,16 +7,11 @@ using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
 
-
 NetworkService net = new NetworkService();
 
 Guid myFakeId = Guid.NewGuid();
 
 IStorage mainstorage = new FileStorage();
-
-// добавил заново тк я даже проверить код не смогу если их нет.
-ChatManager chatManager = new ChatManager(mainstorage);
-UsersRepository repo = new UsersRepository(mainstorage);
 
 await net.ConnectAsync("127.0.0.1", 5000);
 Console.WriteLine("[CLIENT] Вы подключены к серверу Mimu!");
