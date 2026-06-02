@@ -24,6 +24,8 @@ TcpListener server = new TcpListener(IPAddress.Any, 5000);
 
 server.Start();
 
+DbInitializer.Initialize();
+
 Console.WriteLine("Сервер запущен. Ожидание подключения...");
 
 while (true)
@@ -84,7 +86,7 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 var originUser = JsonSerializer.Deserialize<User>(authPacket.PayLoad);
                 if (originUser != null && !string.IsNullOrWhiteSpace(originUser.Username) && !string.IsNullOrWhiteSpace(originUser.Name))
                 {
-                    if (repo.FindByUsername(originUser.Username) == null)
+                    if (await repo.FindByUsername(originUser.Username) == null)
                     {
                         await repo.AddUser(originUser);
                         await repo.SaveData();
@@ -138,7 +140,7 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
 
             if (msg != null && msg.Type == PacketType.SearchUser)
             {
-                var findingTheUser = repo.FindByUsername(msg.PayLoad);
+                var findingTheUser = await repo.FindByUsername(msg.PayLoad);
                 var SearchJson = JsonSerializer.Serialize(findingTheUser);
                 var ServerResponsing = new NetworkPacket(PacketType.ServerResponse, SearchJson);
                 var finalData = JsonSerializer.Serialize(ServerResponsing);

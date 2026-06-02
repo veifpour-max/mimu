@@ -4,6 +4,8 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using LocalMimu.Models;
+using Microsoft.Data.Sqlite;
+using SQLitePCL;
 
 namespace LocalMimu.Repositories;
 
@@ -13,15 +15,10 @@ public class UsersRepository
     private readonly string _path = "users.json";
     private readonly IStorage _storage;
     public bool IsAnomymous;
+    private readonly string _sqlPath = "Data Source=localmimu.db";
     public UsersRepository(IStorage storage)
     {
         _storage = storage;
-        //if (!_users.Values.Any(u => u.Username.ToLower() == "alex"))
-       // {
-       //     AddUser(new User("саша", "alex")).Wait(); // тут вроде решение
-       //     AddUser(new User("сашаклон", "alextest")).Wait();
-      //  }
-
     }
 
     public async Task<List<User>> SearchUsersAsync(string query)
@@ -32,8 +29,20 @@ public class UsersRepository
 
     public async Task AddUser(User user)
     {
-        _users.Add(user.Id, user);
-        await SaveData();
+        using(var connection = new SqliteConnection(_sqlPath))
+        {
+            await connection.OpenAsync();
+            var query = "INSERT INTO Users (Id, Username, Name) VALUES (@id, @username, @name);";
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@id", user.Id.ToString());
+                command.Parameters.AddWithValue("@username", user.Username);
+                command.Parameters.AddWithValue("@name", user.Name);
+
+                await command.ExecuteNonQueryAsync();
+            }
+            
+        }
     }
 
     public void DeleteUser(User user)
@@ -46,20 +55,41 @@ public class UsersRepository
         IsAnomymous = true;
     }
 
-    public User? FindByUsername(string username)
+    public async Task<User?> FindByUsername(string username)
     {
-        return _users.Values.FirstOrDefault(u => u.Username == username);
+        using(var connection = new SqliteConnection(_sqlPath))
+        {
+            await connection.OpenAsync();
+            var query = "SELECT Id, Username, Name FROM Users WHERE Username = @username LIMIT 1";
+            using(var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@username", username); // мне пришлось.. и Я ЗНАЛ НО НЕ БЫЛ УВЕРЕН
+
+                using(var reader = await command.ExecuteReaderAsync())
+                {
+                    if(await reader.ReadAsync())
+                    {
+                        var id = Guid.Parse(reader.GetString(0));
+                        var uname = reader.GetString(1);
+                        var name = reader.GetString(2);
+
+                        return new User(name, uname) {Id = id};
+                    }
+                }
+                
+            }
+            return null;
+        }
     }
 
     public async Task<User?> AuthAsync(string username)
     {
-        await Task.Delay(400);
-        var result = _users.Values.FirstOrDefault(m => m.Username.ToLower() == username.ToLower());
+        var user = await FindByUsername(username);
 
-        if (result != null)
+        if (user != null)
         {
-            result.Status = UserStatus.Online;
-            return result;
+            user.Status = UserStatus.Online;
+            return user;
         }
         else
         {
@@ -89,7 +119,7 @@ public class UsersRepository
 
     public async Task<bool> Register(string name, string username)
     {
-        var existingUser = FindByUsername(username);
+        var existingUser = await FindByUsername(username);
 
         if (existingUser != null)
         {

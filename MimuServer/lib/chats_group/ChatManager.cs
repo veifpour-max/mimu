@@ -66,7 +66,7 @@ class ChatManager
         }
 
     }
-    public List<Message> GetRecentMessages(int count) // спасибо гуглу за помощь
+    public List<Message> GetRecentMessages(int count)
     {
         // и что это делает?
         return _allMessages.TakeLast(count).ToList();

@@ -111,6 +111,7 @@ while (true)
             var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
 
             ServerState.IsFlaged = false;
+            ServerState.rawText = null;
 
             await net.SendPacket(searchingUser);
             Console.WriteLine("Запрос отправлен");
@@ -141,16 +142,15 @@ while (true)
                 await net.SendPacket(npMsg);
 
                 ServerState.IsFlaged = false;
+                ServerState.rawText = null;
+            
 
                 while (!ServerState.IsFlaged)
                 {
                     await Task.Delay(100);
                 }
 
-
                 var targetUser = Deser.DeserJson<User>(ServerState.rawText);
-                Console.WriteLine("Десер успешный.");
-
 
                 if (targetUser != null)
                 {
