@@ -6,6 +6,24 @@
 # dotenv files
 .env
 
+# Игнорируем результаты компиляции
+**/bin/
+**/obj/
+
+# Игнорируем базы данных и файлы настроек
+*.db
+*.json
+
+# Игнорируем кэш VS Code и Rider
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Игнорируем временные файлы сборки .NET
+*.usersecrets
+*.lscache
+
 # User-specific files
 *.rsuser
 *.suo
