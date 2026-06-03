@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.SqlTypes;
 using System.IO;
+using System.IO.Compression;
 using System.Text.Json;
 using System.Threading.Tasks;
 using LocalMimu.Models;
@@ -11,8 +12,6 @@ namespace LocalMimu.Repositories;
 
 public class UsersRepository
 {
-    private Dictionary<Guid, User> _users = new Dictionary<Guid, User>();
-    private readonly string _path = "users.json";
     private readonly IStorage _storage;
     public bool IsAnomymous;
     private readonly string _sqlPath = "Data Source=localmimu.db";
@@ -23,13 +22,40 @@ public class UsersRepository
 
     public async Task<List<User>> SearchUsersAsync(string query)
     {
-        var result = _users.Values.Where(u => u.Username.ToLower().Contains(query.ToLower())).ToList();
-        return result;
+        var queryToServer = "SELECT Id, Username, Name FROM Users WHERE Username LIKE @query";
+
+        var usersList = new List<User>();
+
+        using(var connection = new SqliteConnection(_sqlPath))
+        {
+            await connection.OpenAsync();
+            using(var command = new SqliteCommand(queryToServer, connection))
+            {
+                command.Parameters.AddWithValue(@query, $"%{query}%");
+
+                using(var reader = await command.ExecuteReaderAsync())
+                {
+                    while(await reader.ReadAsync())
+                    {
+                        var id = Guid.Parse(reader.GetString(0));
+                        var uname = reader.GetString(1);
+                        var name = reader.GetString(2);
+
+                        var adding = new User(name, uname) {Id = id};
+                        
+                        usersList.Add(adding);
+                    }
+                }
+
+            }
+        }
+        return usersList;
+
     }
 
     public async Task AddUser(User user)
     {
-        using(var connection = new SqliteConnection(_sqlPath))
+        using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
             var query = "INSERT INTO Users (Id, Username, Name) VALUES (@id, @username, @name);";
@@ -41,13 +67,8 @@ public class UsersRepository
 
                 await command.ExecuteNonQueryAsync();
             }
-            
-        }
-    }
 
-    public void DeleteUser(User user)
-    {
-        _users.Remove(user.Id, out user); 
+        }
     }
 
     public void AnonymousMode()
@@ -57,26 +78,26 @@ public class UsersRepository
 
     public async Task<User?> FindByUsername(string username)
     {
-        using(var connection = new SqliteConnection(_sqlPath))
+        using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
             var query = "SELECT Id, Username, Name FROM Users WHERE Username = @username LIMIT 1";
-            using(var command = new SqliteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
-                command.Parameters.AddWithValue("@username", username); // мне пришлось.. и Я ЗНАЛ НО НЕ БЫЛ УВЕРЕН
+                command.Parameters.AddWithValue("@username", username);
 
-                using(var reader = await command.ExecuteReaderAsync())
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    if(await reader.ReadAsync())
+                    if (await reader.ReadAsync())
                     {
                         var id = Guid.Parse(reader.GetString(0));
                         var uname = reader.GetString(1);
                         var name = reader.GetString(2);
 
-                        return new User(name, uname) {Id = id};
+                        return new User(name, uname) { Id = id };
                     }
                 }
-                
+
             }
             return null;
         }
@@ -97,24 +118,30 @@ public class UsersRepository
         }
     }
 
-    public async Task SaveData()
+    public async Task<User?> GetUserById(Guid id)
     {
-        string json = JsonSerializer.Serialize(_users);
-        await _storage.Save(_path, json);
-    }
-    public async Task LoadData()
-    {
-        if (!await _storage.Exists(_path)) return;
-        string json = await _storage.Load(_path); 
-        if (string.IsNullOrWhiteSpace(json)) return;
+        var query = "SELECT Id, Username, Name FROM Users WHERE Id = @id LIMIT 1;";
+        using (var connection = new SqliteConnection(_sqlPath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@id", id.ToString());
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        var idFromDb = Guid.Parse(reader.GetString(0));
+                        var uname = reader.GetString(1);
+                        var name = reader.GetString(2);
 
-        _users = JsonSerializer.Deserialize<Dictionary<Guid, User>>(json) ?? new();
+                        return new User(name, uname) {Id = idFromDb};
+                    }
 
-
-    }
-    public User? GetUserById(Guid id)
-    {
-        return _users.GetValueOrDefault(id);
+                }
+            }
+        }
+        return null;
     }
 
     public async Task<bool> Register(string name, string username)
@@ -129,7 +156,6 @@ public class UsersRepository
         {
             User regUser = new User(name, username);
             await AddUser(regUser);
-            await SaveData();
             return true;
         }
     }

@@ -57,7 +57,6 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 if (!string.IsNullOrWhiteSpace(incomingUsername))
                 {
                     var result = await repo.AuthAsync(incomingUsername);
-                    await repo.SaveData();
                     if (result != null)
                     {
                         lock (_lock) { _clients[result.Id] = client; }
@@ -89,7 +88,6 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                     if (await repo.FindByUsername(originUser.Username) == null)
                     {
                         await repo.AddUser(originUser);
-                        await repo.SaveData();
                         string serverResponse = "1";
                         var jsonAnswer = JsonSerializer.Serialize(serverResponse);
                         await writer.WriteLineAsync(jsonAnswer);
@@ -128,7 +126,7 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                 Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");
                 var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
 
-                var sender = repo.GetUserById(finalMsg.SenderID);
+                var sender = await repo.GetUserById(finalMsg.SenderID);
                 finalMsg.SenderUsername = sender != null ? sender.Username : "Unknown";
                 var finalAnswermsg = Deser.SerJson(finalMsg);
                 msg.PayLoad = finalAnswermsg;
@@ -158,7 +156,7 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
 
                 foreach (var user in checking)
                 {
-                    var u = repo.GetUserById(user);
+                    var u = await repo.GetUserById(user);
                     if (u != null)
                     {
                         contactUser.Add(u);
