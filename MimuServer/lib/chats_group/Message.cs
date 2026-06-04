@@ -4,7 +4,7 @@ namespace LocalMimu.Models;
 
 public enum MessageType{ Auth, Text, System }
 
-class Message
+public class Message
 {
    public string? Text {get; set;} 
    public Guid SenderID {get; set;}

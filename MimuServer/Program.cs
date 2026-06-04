@@ -18,6 +18,8 @@ UsersRepository repo = new UsersRepository(mainStorage);
 
 ChatManager chatManager = new ChatManager(mainStorage);
 
+MessagesRepository msgRepo = new MessagesRepository("Data Source=localmimu.db");
+
 object _lock = new object();
 
 TcpListener server = new TcpListener(IPAddress.Any, 5000);
