@@ -35,10 +35,10 @@ while (true)
     TcpClient client = await server.AcceptTcpClientAsync();
 
     Console.WriteLine("[Server] Клиент подключен!");
-    _ = HandleClientAsync(client, chatManager);
+    _ = HandleClientAsync(client, msgRepo);
 
 }
-async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
+async Task HandleClientAsync(TcpClient client, MessagesRepository messagesRepository)
 {
     var stream = client.GetStream();
     var writer = new StreamWriter(stream) { AutoFlush = true };
@@ -151,9 +151,10 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
             }
             if (msg != null && msg.Type == PacketType.GetChats)
             {
+                // ну тут по факту легаси код прокачан
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
                 Guid desering = Guid.Parse(msg.PayLoad);
-                List<Guid> checking = chatManager.GetContactIds(desering);
+                List<Guid> checking = await msgRepo.GetContactIdsAsync(desering);
                 List<User> contactUser = new List<User>();
 
                 foreach (var user in checking)
@@ -164,11 +165,9 @@ async Task HandleClientAsync(TcpClient client, ChatManager chatManager)
                         contactUser.Add(u);
                     }
                 }
-
                 var jsonList = Deser.SerJson(contactUser);
                 var packet = new NetworkPacket(PacketType.ServerResponse, jsonList);
                 var finalpacket = Deser.SerJson(packet);
-
                 await writer.WriteLineAsync(finalpacket);
                 Console.WriteLine($"Отправлен список чатов ({checking.Count} шт.) для {desering}");
             }

@@ -63,4 +63,39 @@ public class MessagesRepository
         }
         return history;
     }
+    public async Task<List<Guid>> GetContactIdsAsync(Guid myId)
+    {
+        // я даже на твой чертеж особо не смотрел. ну нормалды, можно еще в целом
+        // и твои так сказать чертежи = почти готовый код, на так скажем 15-20 процентов сделай сложнее. 
+        var contacts = new List<Guid>();
+
+        var query = "SELECT DISTINCT SenderId, ReceiverId FROM Messages WHERE SenderId = @myId OR ReceiverId = @myId";
+
+        using(var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+
+            using(var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@myId", myId.ToString());
+                using(var reader = await command.ExecuteReaderAsync())
+                {
+                    while(await reader.ReadAsync())
+                    {
+                      var sender = Guid.Parse(reader.GetString(0));
+                      var receiver = Guid.Parse(reader.GetString(1));
+
+                      var contactId = sender == myId ? receiver : sender;
+
+                        if (!contacts.Contains(contactId))
+                        {
+                            contacts.Add(contactId);
+                        }
+                    }
+                    
+                }
+            }
+        }
+        return contacts;
+    }
 }
