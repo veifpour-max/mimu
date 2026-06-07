@@ -10,13 +10,9 @@ using LocalMimu.Repositories;
 
 Dictionary<Guid, TcpClient> _clients = new();
 
-Message message = new Message();
-
 IStorage mainStorage = new FileStorage();
 
 UsersRepository repo = new UsersRepository(mainStorage);
-
-ChatManager chatManager = new ChatManager(mainStorage);
 
 MessagesRepository msgRepo = new MessagesRepository("Data Source=localmimu.db");
 
@@ -133,8 +129,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var finalAnswermsg = Deser.SerJson(finalMsg);
                 msg.PayLoad = finalAnswermsg;
                 var final = Deser.SerJson(msg);
-                await SendPrivateMessage(finalMsg, final);
-                await chatManager.SaveMsg(finalMsg);
+                await SendPrivateMessage(finalMsg, final);;
                 Console.WriteLine($"[{finalMsg.SentAt:HH:mm:ss}] от {finalMsg.SenderID} до {finalMsg.ReceiverID}: {finalMsg.Text}");
             }
 
