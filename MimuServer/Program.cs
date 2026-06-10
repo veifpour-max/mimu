@@ -166,6 +166,21 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 await writer.WriteLineAsync(finalpacket);
                 Console.WriteLine($"Отправлен список чатов ({checking.Count} шт.) для {desering}");
             }
+            if(msg != null && msg.Type == PacketType.GetChatsHistory)
+            {
+                var makedResult = msg.PayLoad.Split('|');
+                Guid myId = Guid.Parse(makedResult[0]);
+                Guid targetId = Guid.Parse(makedResult[1]);
+
+                List<Message> history = await msgRepo.GetChatHistoryAsync(myId, targetId);
+
+                var serHistory = Deser.SerJson(history);
+
+                var netPack = new NetworkPacket(PacketType.ServerResponse, serHistory);
+                var finalPack = Deser.SerJson(netPack); // мы всегда так делали, не ошибка же?
+
+                await writer.WriteLineAsync(finalPack);         
+            }
         }
         catch
         {

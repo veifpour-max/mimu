@@ -97,7 +97,7 @@ public class NetworkService
                         if (finalMsg != null)
                         {
                             // удалим пока вызовы некоторые.
-                            Console.WriteLine($"{finalMsg.SentAt:HH:mm:ss} | {finalMsg.SenderUsername}: | {finalMsg.Text} ");
+                            Console.WriteLine($"{shTools.FormatTime(finalMsg.SentAt)} | {finalMsg.SenderUsername}: | {finalMsg.Text} ");
                         }
                     }
                 }

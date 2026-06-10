@@ -8,7 +8,8 @@ public enum PacketType
     ChatMessage,
     GroupMessage,
     ServerResponse,
-    GetChats
+    GetChats,
+    GetChatsHistory
 
 }
 
