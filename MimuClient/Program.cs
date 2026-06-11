@@ -143,7 +143,6 @@ while (true)
 
                 ServerState.IsFlaged = false;
                 ServerState.rawText = null;
-            
 
                 while (!ServerState.IsFlaged)
                 {
@@ -151,11 +150,35 @@ while (true)
                 }
 
                 var targetUser = Deser.DeserJson<User>(ServerState.rawText);
-
                 if (targetUser != null)
                 {
+                    string splitedIds = string.Join("|", myFakeId, targetUser.Id); 
+                    NetworkPacket packetToSend = new NetworkPacket(PacketType.GetChatsHistory, splitedIds);
+
+                    await net.SendPacket(packetToSend);
+
+                    ServerState.IsFlaged = false;
+                    ServerState.rawText = null;
+                    while (!ServerState.IsFlaged)
+                    {
+                        await Task.Delay(100);
+                    }
+
+                    var ResponseAbtUser = Deser.DeserJson<List<Message>>(ServerState.rawText);
+
+                    Console.Clear();
+
                     Console.WriteLine($"=== Чат с @{targetUser.Username} ===");
                     Console.WriteLine("Введи 'exit' для выхода");
+
+                    if (ResponseAbtUser != null)
+                    {
+                        foreach (var c in ResponseAbtUser)
+                        {
+                            string senderName = c.SenderID == myFakeId ? "Вы" : targetUser.Username;
+                            Console.WriteLine($"{shTools.FormatTime(c.SentAt)} | @{senderName} : {c.Text}");
+                        }
+                    }
                     while (true)
                     {
                         Console.Write("Вы: ");
@@ -174,13 +197,12 @@ while (true)
                                 break;
                             }
                             await net.SendPacket(msgPacket);
-                            Console.WriteLine("[Client] Сообщение отправлено");
                         }
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Пользователь не найден локально");
+                    Console.WriteLine("Пользователь не существует");
                 }
 
 
@@ -189,10 +211,10 @@ while (true)
 
         if (choice == "3")
         {
-           var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
-           await net.SendPacket(newPacket);
+            var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
+            await net.SendPacket(newPacket);
 
-           ServerState.IsFlaged = false;
+            ServerState.IsFlaged = false;
 
             while (!ServerState.IsFlaged)
             {
@@ -201,11 +223,11 @@ while (true)
 
             var contactId = Deser.DeserJson<List<User>>(ServerState.rawText);
 
-            if(contactId != null && contactId.Count > 0)
+            if (contactId != null && contactId.Count > 0)
             {
                 Console.WriteLine("Ваши чаты");
 
-                foreach(var id in contactId)
+                foreach (var id in contactId)
                 {
                     Console.WriteLine($"Чат с пользователем @{id.Username} | {id.Name}");
                 }
@@ -214,27 +236,27 @@ while (true)
             {
                 Console.WriteLine("Активных переписок нет");
             }
-            
 
 
 
-            
 
-            
+
+
+
 
 
 
         }
 
-        
 
-        
+
+
 
 
     }
     catch (Exception ex)
     {
-    Console.WriteLine($"Ошибка: {ex.Message}");
-    await Task.Delay(250);
+        Console.WriteLine($"Ошибка: {ex.Message}");
+        await Task.Delay(250);
     }
 }

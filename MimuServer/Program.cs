@@ -129,7 +129,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var finalAnswermsg = Deser.SerJson(finalMsg);
                 msg.PayLoad = finalAnswermsg;
                 var final = Deser.SerJson(msg);
-                await SendPrivateMessage(finalMsg, final);;
+                await SendPrivateMessage(finalMsg, final);
+                await msgRepo.SaveMessagesAsync(finalMsg);
                 Console.WriteLine($"[{finalMsg.SentAt:HH:mm:ss}] от {finalMsg.SenderID} до {finalMsg.ReceiverID}: {finalMsg.Text}");
             }
 
@@ -146,7 +147,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (msg != null && msg.Type == PacketType.GetChats)
             {
-                // ну тут по факту легаси код прокачан
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
                 Guid desering = Guid.Parse(msg.PayLoad);
                 List<Guid> checking = await msgRepo.GetContactIdsAsync(desering);
@@ -177,9 +177,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var serHistory = Deser.SerJson(history);
 
                 var netPack = new NetworkPacket(PacketType.ServerResponse, serHistory);
-                var finalPack = Deser.SerJson(netPack); // мы всегда так делали, не ошибка же?
+                var finalPack = Deser.SerJson(netPack);
 
-                await writer.WriteLineAsync(finalPack);         
+                await writer.WriteLineAsync(finalPack);    
             }
         }
         catch
