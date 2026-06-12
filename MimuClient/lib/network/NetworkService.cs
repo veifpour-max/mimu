@@ -60,14 +60,14 @@ public class NetworkService
             return null;
         }
         var deserAnswer = Deser.DeserJson<NetworkPacket>(waiting);
-        if(deserAnswer != null)
+        if (deserAnswer != null)
         {
             var desering = Deser.DeserJson<User>(deserAnswer.PayLoad);
             return desering;
         }
         return null;
-        
-        
+
+
     }
     public async Task RequestChatsAsync(Guid myId)
     {
@@ -92,11 +92,10 @@ public class NetworkService
                 {
                     if (shTools.check(msg.PayLoad))
                     {
-                        
+
                         var finalMsg = Deser.DeserJson<Message>(msg.PayLoad);
                         if (finalMsg != null)
                         {
-                            // удалим пока вызовы некоторые.
                             Console.WriteLine($"{shTools.FormatTime(finalMsg.SentAt)} | {finalMsg.SenderUsername}: | {finalMsg.Text} ");
                         }
                     }
@@ -105,9 +104,12 @@ public class NetworkService
 
                 if (msg != null && msg.Type == PacketType.ServerResponse)
                 {
-                    Console.WriteLine("[DEBUG] Пакет от сервера пришел в фоновый поток");
                     ServerState.rawText = msg.PayLoad;
-                    ServerState.IsFlaged = true;
+                    if (ServerState.ResponseSignal.CurrentCount == 0)
+                    {
+                        ServerState.ResponseSignal.Release();
+                    }
+
                 }
             }
             catch (Exception ex)

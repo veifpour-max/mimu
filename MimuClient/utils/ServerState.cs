@@ -2,12 +2,11 @@ namespace LocalMimu.Models;
 
 public class ServerState
 {
-    public static bool IsFlaged { get; set; }
+    public static readonly SemaphoreSlim ResponseSignal = new SemaphoreSlim(0, 1);
     public static string? rawText { get; set; }
 
-    public ServerState(bool isflaged, string rawtext)
+    public ServerState(string rawtext)
     {
-        IsFlaged = isflaged;
         rawText = rawtext;
     }
 

@@ -110,15 +110,11 @@ while (true)
 
             var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
 
-            ServerState.IsFlaged = false;
             ServerState.rawText = null;
 
             await net.SendPacket(searchingUser);
             Console.WriteLine("Запрос отправлен");
-            while (!ServerState.IsFlaged)
-            {
-                await Task.Delay(100);
-            }
+            await ServerState.ResponseSignal.WaitAsync();
 
             var deser = Deser.DeserJson<User>(ServerState.rawText);
             if (deser != null)
@@ -141,28 +137,19 @@ while (true)
                 var npMsg = new NetworkPacket(PacketType.SearchUser, input);
                 await net.SendPacket(npMsg);
 
-                ServerState.IsFlaged = false;
                 ServerState.rawText = null;
-
-                while (!ServerState.IsFlaged)
-                {
-                    await Task.Delay(100);
-                }
+                await ServerState.ResponseSignal.WaitAsync();
 
                 var targetUser = Deser.DeserJson<User>(ServerState.rawText);
                 if (targetUser != null)
                 {
-                    string splitedIds = string.Join("|", myFakeId, targetUser.Id); 
+                    string splitedIds = string.Join("|", myFakeId, targetUser.Id);
                     NetworkPacket packetToSend = new NetworkPacket(PacketType.GetChatsHistory, splitedIds);
 
                     await net.SendPacket(packetToSend);
 
-                    ServerState.IsFlaged = false;
                     ServerState.rawText = null;
-                    while (!ServerState.IsFlaged)
-                    {
-                        await Task.Delay(100);
-                    }
+                    await ServerState.ResponseSignal.WaitAsync();
 
                     var ResponseAbtUser = Deser.DeserJson<List<Message>>(ServerState.rawText);
 
@@ -214,12 +201,8 @@ while (true)
             var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
             await net.SendPacket(newPacket);
 
-            ServerState.IsFlaged = false;
-
-            while (!ServerState.IsFlaged)
-            {
-                await Task.Delay(100);
-            }
+            ServerState.rawText = null;
+            await ServerState.ResponseSignal.WaitAsync();
 
             var contactId = Deser.DeserJson<List<User>>(ServerState.rawText);
 
@@ -237,21 +220,7 @@ while (true)
                 Console.WriteLine("Активных переписок нет");
             }
 
-
-
-
-
-
-
-
-
-
         }
-
-
-
-
-
 
     }
     catch (Exception ex)
