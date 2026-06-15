@@ -7,12 +7,9 @@ using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
 
-
 Dictionary<Guid, TcpClient> _clients = new();
 
-IStorage mainStorage = new FileStorage();
-
-UsersRepository repo = new UsersRepository(mainStorage);
+UsersRepository repo = new UsersRepository("Data Source=localmimu.db");
 
 MessagesRepository msgRepo = new MessagesRepository("Data Source=localmimu.db");
 

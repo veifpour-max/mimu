@@ -5,13 +5,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using LocalMimu.Models;
-using LocalMimu.Repositories;
 
 NetworkService net = new NetworkService();
-
 Guid myFakeId = Guid.NewGuid();
-
-IStorage mainstorage = new FileStorage();
 
 await net.ConnectAsync("127.0.0.1", 5000);
 Console.WriteLine("[CLIENT] Вы подключены к серверу Mimu!");

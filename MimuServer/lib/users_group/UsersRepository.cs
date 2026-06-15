@@ -12,12 +12,11 @@ namespace LocalMimu.Repositories;
 
 public class UsersRepository
 {
-    private readonly IStorage _storage;
     public bool IsAnomymous;
     private readonly string _sqlPath = "Data Source=localmimu.db";
-    public UsersRepository(IStorage storage)
+    public UsersRepository(string sql)
     {
-        _storage = storage;
+        sql = _sqlPath;
     }
 
     public async Task<List<User>> SearchUsersAsync(string query)
