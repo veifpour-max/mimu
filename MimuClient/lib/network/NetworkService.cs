@@ -2,6 +2,8 @@ using System.Net.Sockets;
 
 namespace LocalMimu.Models;
 
+
+
 public class NetworkService
 {
     private TcpClient _client;
@@ -92,7 +94,6 @@ public class NetworkService
                 {
                     if (shTools.check(msg.PayLoad))
                     {
-
                         var finalMsg = Deser.DeserJson<Message>(msg.PayLoad);
                         if (finalMsg != null)
                         {
@@ -110,6 +111,10 @@ public class NetworkService
                         ServerState.ResponseSignal.Release();
                     }
 
+                }
+                if(msg != null && msg.Type == PacketType.Ping)
+                {
+                    await SendPacket(new NetworkPacket(PacketType.Pong, ""));
                 }
             }
             catch (Exception ex)

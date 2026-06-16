@@ -9,7 +9,9 @@ public enum PacketType
     GroupMessage,
     ServerResponse,
     GetChats,
-    GetChatsHistory
+    GetChatsHistory,
+    Ping,
+    Pong
 
 }
 

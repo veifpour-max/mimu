@@ -108,8 +108,32 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         }
     }
 
+
+
     while (true)
     {
+
+        _ = Task.Run(async () =>
+        {
+            try{
+            while (client.Connected)
+            {
+                await Task.Delay(30000);
+                var ping = new NetworkPacket(PacketType.Ping, "");
+                var serPing = Deser.SerJson(ping);
+
+                await writer.WriteLineAsync(serPing);
+            }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Клиент отвалился по таймауту {ex.Message}");
+            }
+            finally
+            {
+                client.Close();
+            }
+        });
         try
         {
 
@@ -163,7 +187,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 await writer.WriteLineAsync(finalpacket);
                 Console.WriteLine($"Отправлен список чатов ({checking.Count} шт.) для {desering}");
             }
-            if(msg != null && msg.Type == PacketType.GetChatsHistory)
+            if (msg != null && msg.Type == PacketType.GetChatsHistory)
             {
                 var makedResult = msg.PayLoad.Split('|');
                 Guid myId = Guid.Parse(makedResult[0]);
@@ -176,8 +200,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var netPack = new NetworkPacket(PacketType.ServerResponse, serHistory);
                 var finalPack = Deser.SerJson(netPack);
 
-                await writer.WriteLineAsync(finalPack);    
+                await writer.WriteLineAsync(finalPack);
             }
+
         }
         catch
         {
