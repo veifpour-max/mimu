@@ -17,7 +17,8 @@ public static class DbInitializer
             CREATE TABLE IF NOT EXISTS Users(
                 Id Text PRIMARY KEY,
                 Username TEXT UNIQUE NOT NULL,
-                Name TEXT NOT NULL
+                Name TEXT NOT NULL,
+                PasswordHash TEXT NOT NULL
             );";
 
             var createMessagesTable = @"

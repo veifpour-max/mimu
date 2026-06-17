@@ -29,10 +29,10 @@ public class NetworkService
         var send = Deser.SerJson(info);
         await _writer.WriteLineAsync(send);
     }
-    public async Task<bool> RegisterAsync(User newUser)
+    public async Task<bool> RegisterAsync(RegisterPayload registerPayload)
     {
-        var serializedUser = Deser.SerJson(newUser);
-        var regJson = new NetworkPacket(PacketType.Register, serializedUser);
+        var serializedUserPayload = Deser.SerJson(registerPayload);
+        var regJson = new NetworkPacket(PacketType.Register, serializedUserPayload);
         var finalUser = Deser.SerJson(regJson);
         await _writer.WriteLineAsync(finalUser);
         var waiting = await _reader.ReadLineAsync();
@@ -49,9 +49,10 @@ public class NetworkService
         return false;
     }
 
-    public async Task<User?> AuthenticateAsync(string username)
+    public async Task<User?> AuthenticateAsync(LoginPayload login)
     {
-        var authPacket = new NetworkPacket(PacketType.Auth, username);
+        var loginSer = Deser.SerJson(login);
+        var authPacket = new NetworkPacket(PacketType.Auth, loginSer);
         var finalPacket = Deser.SerJson(authPacket);
         await _writer.WriteLineAsync(finalPacket);
         var waiting = await _reader.ReadLineAsync();

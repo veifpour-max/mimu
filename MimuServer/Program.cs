@@ -47,58 +47,38 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
             if (authPacket != null && authPacket.Type == PacketType.Auth)
             {
-                var incomingUsername = authPacket.PayLoad;
+                Console.WriteLine("Пакет Auth дошел до сервера.");
+                var data = Deser.DeserJson<LoginPayload>(authPacket.PayLoad);
 
-                if (!string.IsNullOrWhiteSpace(incomingUsername))
+                User? user = await repo.AuthAsync(data.Username, data.PasswordHash);
+
+                if (user != null)
                 {
-                    var result = await repo.AuthAsync(incomingUsername);
-                    if (result != null)
-                    {
-                        lock (_lock) { _clients[result.Id] = client; }
-                        assignedId = result.Id;
-                        var resultInJson = JsonSerializer.Serialize(result);
-                        var packetResponse = new NetworkPacket(PacketType.ServerResponse, resultInJson);
-                        var finalPacket = JsonSerializer.Serialize(packetResponse);
-                        await writer.WriteLineAsync(finalPacket);
-                        Console.WriteLine($"[Server] Юзер {assignedId} получил ответ сервера.");
-                        break;
-                    }
-                    else if (result == null)
-                    {
-                        var response = new NetworkPacket(PacketType.ServerResponse, "null");
-                        var finalPacket = Deser.SerJson(response);
-                        await writer.WriteLineAsync(finalPacket);
-                        Console.WriteLine($"Неудачная попытка входа для {incomingUsername}");
-                    }
+                    var serUser = Deser.SerJson(user);
+                    var packet = new NetworkPacket(PacketType.ServerResponse, serUser);
+                    var final = Deser.SerJson(packet);
+                    await writer.WriteLineAsync(final);
+                    assignedId = user.Id;
+                    break;
                 }
-
-
             }
 
             if (authPacket != null && authPacket.Type == PacketType.Register)
             {
-                var originUser = JsonSerializer.Deserialize<User>(authPacket.PayLoad);
-                if (originUser != null && !string.IsNullOrWhiteSpace(originUser.Username) && !string.IsNullOrWhiteSpace(originUser.Name))
+                var data = Deser.DeserJson<RegisterPayload>(authPacket.PayLoad);
+                bool success = await repo.Register(data.id, data.Name, data.Username, data.PasswordHash);
+
+                if (success)
                 {
-                    if (await repo.FindByUsername(originUser.Username) == null)
-                    {
-                        await repo.AddUser(originUser);
-                        string serverResponse = "1";
-                        var jsonAnswer = JsonSerializer.Serialize(serverResponse);
-                        await writer.WriteLineAsync(jsonAnswer);
-                        lock (_lock) { _clients[originUser.Id] = client; }
-                        assignedId = originUser.Id;
-                        Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
-                        break;
-
-                    }
-                    else
-                    {
-                        await writer.WriteLineAsync(JsonSerializer.Serialize("0"));
-                        break;
-                    }
-
+                    lock (_lock) { _clients[data.id] = client; }
+                    assignedId = data.id;
+                    string serverResponse = "1";
+                    var jsonAnswer = JsonSerializer.Serialize(serverResponse);
+                    await writer.WriteLineAsync(jsonAnswer);
+                    Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
+                    break;
                 }
+
             }
         }
         catch (Exception ex)
@@ -115,15 +95,16 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
         _ = Task.Run(async () =>
         {
-            try{
-            while (client.Connected)
+            try
             {
-                await Task.Delay(30000);
-                var ping = new NetworkPacket(PacketType.Ping, "");
-                var serPing = Deser.SerJson(ping);
+                while (client.Connected)
+                {
+                    await Task.Delay(30000);
+                    var ping = new NetworkPacket(PacketType.Ping, "");
+                    var serPing = Deser.SerJson(ping);
 
-                await writer.WriteLineAsync(serPing);
-            }
+                    await writer.WriteLineAsync(serPing);
+                }
             }
             catch (Exception ex)
             {

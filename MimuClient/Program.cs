@@ -33,13 +33,16 @@ while (!IsRegistred)
             var username = Console.ReadLine();
             Console.Write("Введите свое имя: ");
             var name = Console.ReadLine();
-            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name))
+            Console.Write("Введите свой пароль(ЗАПОМНИТЕ ЕГО)");
+            var password = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name) && shTools.check(password))
             {
-                var registerUser = new User(name, username);
+                var hash = Crypto.SHA256Encode(password);
+                var registerUser = new RegisterPayload(name, username, hash);
                 var success = await net.RegisterAsync(registerUser);
                 if (success)
                 {
-                    myFakeId = registerUser.Id;
+                    myFakeId = registerUser.id;
                     IsRegistred = true;
                 }
             }
@@ -54,11 +57,15 @@ while (!IsRegistred)
     {
         Console.Write("Введи свой username: ");
         var username = Console.ReadLine();
+        Console.Write("Введи свой пароль: ");
+        var password = Console.ReadLine();
         if (username != null)
         {
-            if (!string.IsNullOrWhiteSpace(username))
+            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
             {
-                var serverAnswer = await net.AuthenticateAsync(username);
+                var encrypted = Crypto.SHA256Encode(password);
+                var loginToServer = new LoginPayload(username, encrypted);
+                var serverAnswer = await net.AuthenticateAsync(loginToServer);
                 if (serverAnswer != null)
                 {
                     myFakeId = serverAnswer.Id;
