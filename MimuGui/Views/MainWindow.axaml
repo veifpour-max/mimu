@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MimuGui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
+        x:Class="MimuGui.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="LocalMimu">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+        to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="18">
+        <TextBlock Text="Авторизация в LocalMimu" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="20"/>
+        <TextBox Width="300" Text="{Binding Username, Mode=TwoWay}" Watermark="Введите username"/>
+        <TextBox Width="300" Text="{Binding Password, Mode=TwoWay}" Watermark="Введите пароль" PasswordChar="*"/>
+        <Button Command="{Binding OnLogClicked}" BorderBrush="#3B3B3B" BorderThickness="1" Width="150" Height="35" Background="Black" HorizontalAlignment="Center" Content="Войти" HorizontalContentAlignment="Center" CornerRadius="8"></Button>
+        <Button BorderBrush="#3B3B3B" BorderThickness="1" Width="150" Height="35" Background="Black" HorizontalAlignment="Center" Content="Регистрация" HorizontalContentAlignment="Center" CornerRadius="8"></Button>
+
+    </StackPanel>
+
+</Window>

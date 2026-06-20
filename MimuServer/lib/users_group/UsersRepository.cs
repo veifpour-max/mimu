@@ -17,7 +17,7 @@ public class UsersRepository
     private readonly string _sqlPath = "Data Source=localmimu.db";
     public UsersRepository(string sql)
     {
-        sql = _sqlPath;
+        _sqlPath = sql;
     }
 
     public async Task<List<User>> SearchUsersAsync(string query)

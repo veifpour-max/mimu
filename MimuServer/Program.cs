@@ -58,6 +58,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var packet = new NetworkPacket(PacketType.ServerResponse, serUser);
                     var final = Deser.SerJson(packet);
                     await writer.WriteLineAsync(final);
+                    lock (_lock) { _clients[user.Id] = client; }
                     assignedId = user.Id;
                     break;
                 }
@@ -88,33 +89,33 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         }
     }
 
+    _ = Task.Run(async () =>
+            {
+                try
+                {
+                    while (client.Connected)
+                    {
+                        await Task.Delay(30000);
+                        var ping = new NetworkPacket(PacketType.Ping, "");
+                        var serPing = Deser.SerJson(ping);
 
+                        await writer.WriteLineAsync(serPing);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Клиент отвалился по таймауту {ex.Message}");
+                }
+                finally
+                {
+                    client.Close();
+                }
+            });
 
     while (true)
     {
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                while (client.Connected)
-                {
-                    await Task.Delay(30000);
-                    var ping = new NetworkPacket(PacketType.Ping, "");
-                    var serPing = Deser.SerJson(ping);
 
-                    await writer.WriteLineAsync(serPing);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Клиент отвалился по таймауту {ex.Message}");
-            }
-            finally
-            {
-                client.Close();
-            }
-        });
         try
         {
 
