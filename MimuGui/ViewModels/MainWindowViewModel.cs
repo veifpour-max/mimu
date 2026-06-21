@@ -27,28 +27,61 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private readonly NetworkService _net = new NetworkService();
     public string Greeting { get; } = "LocalMimu v0.1";
-
     public string InputText { get; set; } = "Пиши сюда...";
 
     private string _username = "";
     private string _password = "";
+    public string _StatusMessage = "";
+    private bool _isLoginVisible = true;
+
+    
+
 
     public string Username
     {
-        // а че для всего нужно такое свойство? типа гет это откуда мы получаем инфу и сет это то что мы вставляем. ну или свойство где гет это обозначсение переменной а сет это что с ней делать
         get => _username;
-        set => SetProperty(ref _username, value); // у меня тут не вставляется реактив так что нашел в гугле замену
+        set => SetProperty(ref _username, value);
     }
     public string Password
     {
         get => _password;
         set => SetProperty(ref _password, value);
     }
-
-    public void OnLogClicked()
+    public string StatusMessage
     {
-        Debug.WriteLine($"Нажата кнопка войти: Логин: {Username} | Пароль: {Password}");
-        Console.WriteLine($"Нажата кнопка войти: Логин: {Username} | Пароль: {Password}");
+        get => _StatusMessage;
+        set => SetProperty(ref _StatusMessage, value);
+    }
+    public bool IsLoginVisible
+    {
+        get => _isLoginVisible;
+        set => SetProperty(ref _isLoginVisible, value);
+    }
+
+    public async void OnLogClicked()
+    {
+        if(shTools.check(Username) && shTools.check(Password))
+        {
+            StatusMessage = "Вход..";
+            var hash = Crypto.SHA256Encode(Password);
+            var loginPayload = new LoginPayload(Username, hash);
+            var user = await _net.AuthenticateAsync(loginPayload);
+
+            if(user != null)
+            {
+                StatusMessage = $"Добро пожаловать, {user.Username}";
+                IsLoginVisible = false;
+            }
+            if(user == null)
+            {
+                StatusMessage = "Неверный логин или пароль";
+            }
+        }
+        else if(!shTools.check(Username) || !shTools.check(Password) || !shTools.check(Password) && !shTools.check(Password))
+        {
+            StatusMessage = "Заполните все поля!";
+        }
+
     }
 
 }

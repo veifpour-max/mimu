@@ -7,7 +7,7 @@ public static class Crypto
         // по идее тут асинк не нужен из-за того что это операция просто на получение чего либо.
         byte[] inByte = System.Text.Encoding.UTF8.GetBytes(passhash);
         var incomingHash = System.Security.Cryptography.SHA256.HashData(inByte);
-        var finalHash = System.Text.Encoding.UTF8.GetString(incomingHash);
+        var finalHash = Convert.ToHexString(incomingHash);
         return finalHash;
     }
 }

@@ -62,6 +62,13 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     assignedId = user.Id;
                     break;
                 }
+                else
+                {
+                    var packet = new NetworkPacket(PacketType.ServerResponse, "");
+                    var final = Deser.SerJson(packet);
+                    await writer.WriteLineAsync(final);
+                    Console.WriteLine("Ошибка авторизации: неверный пароль");
+                }
             }
 
             if (authPacket != null && authPacket.Type == PacketType.Register)
