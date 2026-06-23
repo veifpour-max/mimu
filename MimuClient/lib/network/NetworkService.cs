@@ -1,14 +1,12 @@
 using System.Net.Sockets;
 
 namespace LocalMimu.Models;
-
-
-
 public class NetworkService
 {
     private TcpClient _client;
     private StreamReader _reader;
     private StreamWriter _writer;
+    public event Action<Message>? OnMessageReceived;
 
     public async Task ConnectAsync(string ip, int port)
     {
@@ -98,6 +96,7 @@ public class NetworkService
                         var finalMsg = Deser.DeserJson<Message>(msg.PayLoad);
                         if (finalMsg != null)
                         {
+                            OnMessageReceived?.Invoke(finalMsg);
                             Console.WriteLine($"{shTools.FormatTime(finalMsg.SentAt)} | {finalMsg.SenderUsername}: | {finalMsg.Text} ");
                         }
                     }
