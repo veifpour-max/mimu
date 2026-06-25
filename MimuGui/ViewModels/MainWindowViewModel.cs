@@ -5,30 +5,74 @@ using LocalMimu.Models;
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using System.Collections.Generic;
+using Microsoft.VisualBasic;
+using System.Security.Cryptography;
+using System.IO;
+using System.Text.Json.Serialization;
+using System.Text.Json;
+
 
 namespace MimuGui.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private readonly SessionManager _sessionManager = new SessionManager();
     public MainWindowViewModel()
     {
-        _ = ConnectToServerAsync();
+        _ = InitilizeAppAsync();
+        ActiveChats.Add(new User("Тест.Кеджонович", "kejdo"));
+    }
+    private async Task InitilizeAppAsync()
+    {
+        var savedSession = _sessionManager.LoadSession();
 
-        ActiveChats.Add(new User("Тунг тунг кеджон", "kejdo"));
-        ActiveChats.Add(new User("Лакки", "lakki_sabakin"));
+        if (savedSession != null)
+        {
+            await AutoLoginAsync(savedSession);
+        }
+        else
+        {
+            try
+            {
+                StatusMessage = "Подключение к серверу..";
+                await _net.ConnectAsync("127.0.0.1", 5000);
+                StatusMessage = "Готов ко входу";
+                IsLoginVisible = true;
+            }
+            catch(Exception ex)
+            {
+                StatusMessage = $"Ошибка подключения к серверу: {ex.Message}";
+                IsLoginVisible = true;
+            }
+        }
     }
 
-    private async Task ConnectToServerAsync()
+    private async Task AutoLoginAsync(SessionModel session)
     {
         try
         {
-            await _net.ConnectAsync("127.0.0.1", 5000);
-            _net.OnMessageReceived += HandleIncomingMessage;
-            Debug.WriteLine("Подключено к серверу");
+            await _net.ConnectAsync(session.ServerAddress, 5000);
+            var loginPayload = new LoginPayload(session.Username, session.PasswordHash);
+            var user = await _net.AuthenticateAsync(loginPayload);
+
+            if (user != null)
+            {
+                _myId = user.Id;
+                StatusMessage = $"Добро пожаловать обратно, {user.Username}";
+                _net.StartListening();
+                IsLoginVisible = false;
+            }
+            else
+            {
+                _sessionManager.DeleteSession();
+                StatusMessage = "Войдите заново. Сессия устарела или потеряна";
+                IsLoginVisible = true;
+            }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Ошибка подключения: {ex.Message}");
+            StatusMessage = $"Ошибка авто-входа: {ex.Message}";
+            IsLoginVisible = true;
         }
     }
 
@@ -42,7 +86,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private User? _selectedUser;
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
-    public ObservableCollection<User> ActiveChats {get; set;} = new ObservableCollection<User>();
+    public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
     public ObservableCollection<Message> ChatMessages { get; } = new ObservableCollection<Message>();
     public string Username
     {
@@ -69,7 +113,7 @@ public partial class MainWindowViewModel : ViewModelBase
         get => _selectedUser;
         set
         {
-            if(SetProperty(ref _selectedUser, value) && value != null)
+            if (SetProperty(ref _selectedUser, value) && value != null)
             {
                 _ = LoadChatHistory(value.Id);
             }
@@ -77,49 +121,48 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     private void HandleIncomingMessage(Message msg)
     {
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             StatusMessage = $"Сообщение от {msg.SenderUsername} : {msg.Text}";
         });
     }
-public async Task LoadChatHistory(Guid targetId)
-{
-    try
+    public async Task LoadChatHistory(Guid targetId)
     {
-        if (_myId != Guid.Empty)
+        try
         {
-            StatusMessage = $"Загрузка чата с @{SelectedUser?.Username}...";
-
-            var joinedStr = string.Join("|", _myId, targetId);
-            var packet = new NetworkPacket(PacketType.GetChatsHistory, joinedStr);
-            
-            ServerState.rawText = null;
-            await _net.SendPacket(packet);
-            await ServerState.ResponseSignal.WaitAsync();
-            
-            var history = Deser.DeserJson<List<Message>>(ServerState.rawText);
-            
-            if (history != null)
+            if (_myId != Guid.Empty)
             {
-                // Физика потоков: перебрасываем изменение коллекции в UI-поток!
-                Dispatcher.UIThread.Post(() =>
-                {
-                    ChatMessages.Clear(); // Чистим старый чат
-                    foreach (var msg in history)
-                    {
-                        ChatMessages.Add(msg); // Заливаем сообщения нового чата
-                    }
-                });
+                StatusMessage = $"Загрузка чата с @{SelectedUser?.Username}...";
 
-                StatusMessage = $"Чат с @{SelectedUser?.Username}"; // Заголовок чата
+                var joinedStr = string.Join("|", _myId, targetId);
+                var packet = new NetworkPacket(PacketType.GetChatsHistory, joinedStr);
+
+                ServerState.rawText = null;
+                await _net.SendPacket(packet);
+                await ServerState.ResponseSignal.WaitAsync();
+
+                var history = Deser.DeserJson<List<Message>>(ServerState.rawText);
+
+                if (history != null)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        ChatMessages.Clear();
+                        foreach (var msg in history)
+                        {
+                            ChatMessages.Add(msg);
+                        }
+                    });
+
+                    StatusMessage = $"Чат с @{SelectedUser?.Username}";
+                }
             }
         }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Ошибка загрузки истории: {ex.Message}";
+        }
     }
-    catch (Exception ex)
-    {
-        StatusMessage = $"Ошибка загрузки истории: {ex.Message}";
-    }
-}
 
     public async void OnLogClicked()
     {
@@ -134,6 +177,7 @@ public async Task LoadChatHistory(Guid targetId)
             {
                 _myId = user.Id;
                 StatusMessage = $"Добро пожаловать, {user.Username}";
+                _sessionManager.SaveSession(user.Username, hash, "127.0.0.1");
                 _net.StartListening();
                 IsLoginVisible = false;
                 await _net.RequestChatsAsync(_myId);
