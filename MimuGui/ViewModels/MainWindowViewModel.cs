@@ -20,7 +20,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         _ = InitilizeAppAsync();
-        ActiveChats.Add(new User("Тест.Кеджонович", "kejdo"));
     }
     private async Task InitilizeAppAsync()
     {
@@ -39,7 +38,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 StatusMessage = "Готов ко входу";
                 IsLoginVisible = true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 StatusMessage = $"Ошибка подключения к серверу: {ex.Message}";
                 IsLoginVisible = true;
@@ -61,6 +60,20 @@ public partial class MainWindowViewModel : ViewModelBase
                 StatusMessage = $"Добро пожаловать обратно, {user.Username}";
                 _net.StartListening();
                 IsLoginVisible = false;
+
+                ServerState.rawText = null;
+                await _net.RequestChatsAsync(_myId);
+                await ServerState.ResponseSignal.WaitAsync();
+
+                var chats = Deser.DeserJson<List<User>>(ServerState.rawText);
+                if (chats != null)
+                {
+                    ActiveChats.Clear();
+                    foreach (var c in chats)
+                    {
+                        ActiveChats.Add(c);
+                    }
+                }
             }
             else
             {
@@ -86,6 +99,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private User? _selectedUser;
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
+
+    private string _newMessageText;
     public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
     public ObservableCollection<Message> ChatMessages { get; } = new ObservableCollection<Message>();
     public string Username
@@ -119,12 +134,34 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
     }
+    public string NewMessageText
+    {
+        get => _newMessageText;
+        set => SetProperty(ref _newMessageText, value);
+    }
     private void HandleIncomingMessage(Message msg)
     {
         Dispatcher.UIThread.Post(() =>
-        {
-            StatusMessage = $"Сообщение от {msg.SenderUsername} : {msg.Text}";
-        });
+      {
+          try
+          {
+
+
+              if (ChatMessages != null && SelectedUser != null && msg.SenderID == SelectedUser.Id)
+              {
+                  ChatMessages.Add(msg);
+              }
+              else
+              {
+                  StatusMessage = $"Сообщение от {msg.SenderUsername}";
+              }
+          }
+          catch (Exception ex)
+          {
+              StatusMessage = $"Ошибка отривовки: {ex.Message}";
+          }
+
+      });
     }
     public async Task LoadChatHistory(Guid targetId)
     {
@@ -180,7 +217,20 @@ public partial class MainWindowViewModel : ViewModelBase
                 _sessionManager.SaveSession(user.Username, hash, "127.0.0.1");
                 _net.StartListening();
                 IsLoginVisible = false;
+
+                ServerState.rawText = null;
                 await _net.RequestChatsAsync(_myId);
+                await ServerState.ResponseSignal.WaitAsync();
+
+                var chats = Deser.DeserJson<List<User>>(ServerState.rawText);
+                if (chats != null)
+                {
+                    ActiveChats.Clear();
+                    foreach (var c in chats)
+                    {
+                        ActiveChats.Add(c);
+                    }
+                }
             }
             if (user == null)
             {
@@ -191,6 +241,32 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = "Заполните все поля!";
         }
+
+    }
+    public async Task OnSendClicked()
+    {
+        try
+        {
+            if (SelectedUser == null || !shTools.check(NewMessageText))
+            {
+                return;
+            }
+            var msg = new Message(NewMessageText, _myId, SelectedUser.Id, MessageType.Text);
+            string sering = Deser.SerJson(msg);
+            var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);
+            await _net.SendPacket(newPacket);
+            Dispatcher.UIThread.Post(() =>
+            {
+                ChatMessages.Add(msg);
+                NewMessageText = "";
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Ошибка отправки: {ex.Message}";
+        }
+
+
 
     }
 

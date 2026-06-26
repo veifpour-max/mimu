@@ -18,7 +18,19 @@ public class SessionManager
             Directory.CreateDirectory(folderPath);
         }
 
-        _filePath = Path.Combine(folderPath, "session.bin");
+        var suffix = "";
+        var args = Environment.GetCommandLineArgs();
+
+        for(int i = 0; i < args.Length; i++)
+        {
+            if(args[i] == "--profile" && i + 1 < args.Length)
+            {
+              suffix = "_" + args[i + 1];
+              break; 
+            }
+            
+        }
+        _filePath = Path.Combine(folderPath, $"session{suffix}.bin");
 
     }
     public void SaveSession(string username, string hash, string address)

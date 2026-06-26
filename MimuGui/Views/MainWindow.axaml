@@ -54,11 +54,10 @@
 
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="models:User">
-                                <!-- Саму карточку мы делаем прозрачной, так как ListBox сам добавит красивую рамку при выделении! -->
                                 <Border Width="200" Height="50" Background="Transparent" Padding="5">
                                     <StackPanel Orientation="Horizontal" Spacing="15">
                                         <Border Width="30" Height="30" Background="#424141" CornerRadius="15" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="White" FontWeight="Medium"/>
+                                        <TextBlock Text="{Binding Username}" VerticalAlignment="Center" Foreground="White" FontWeight="Medium"/>
                                     </StackPanel>
                             </Border>
                             </DataTemplate>
@@ -68,7 +67,7 @@
                     <Border Width="220" Height="60" Background="#2C2C2C" CornerRadius="8" Padding="10">
                         <StackPanel Orientation="Horizontal" Spacing="15">
                             <Border Width="40" Height="40" Background="#504F4F" CornerRadius="20" VerticalAlignment="Center"/>
-                            <TextBlock Text="Кеджо антонище" VerticalAlignment="Center" Foreground="White" FontWeight="Medium"/>
+                            <TextBlock VerticalAlignment="Center" Foreground="White" FontWeight="Medium"/>
                         </StackPanel>
                     </Border>
 
@@ -124,8 +123,8 @@
         
         <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#202020" BorderThickness="0,1,0,0" Padding="10">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBox Grid.Column="0" Watermark="Написать сообщение..." VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Content="Отправить" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Text="{Binding NewMessageText, Mode=TwoWay}" Grid.Column="0" Watermark="Написать сообщение..." VerticalAlignment="Center"/>
+                <Button Command="{Binding OnSendClicked}" Grid.Column="1" Content="Отправить" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalContentAlignment="Center"/>
             </Grid>
         </Border>
         
