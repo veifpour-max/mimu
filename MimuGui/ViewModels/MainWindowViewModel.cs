@@ -108,6 +108,8 @@ public partial class MainWindowViewModel : ViewModelBase
         get => _username;
         set => SetProperty(ref _username, value);
     }
+
+    public Guid MyId => _myId;
     public string Password
     {
         get => _password;

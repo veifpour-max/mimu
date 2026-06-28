@@ -32,19 +32,8 @@ public static string FormatTime(DateTime time)
         {
            return time.ToString("dd.MM.yy");  
         }
-        // я чувствую будто у меня -88 iq, даже применять в program.cs не хочу нахуй так жить блять
     }
 }
-
-    
-    
-
-    
-
-
-
-
-
 
 
 
