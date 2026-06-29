@@ -14,7 +14,6 @@ public class MessagesRepository
 
     public async Task SaveMessagesAsync(Message msg)
     {
-        // вроде все верно так еще и DI применяем.. кайф
         using(var connection = new SqliteConnection(_sqlpath))
         {
             await connection.OpenAsync();
@@ -65,8 +64,6 @@ public class MessagesRepository
     }
     public async Task<List<Guid>> GetContactIdsAsync(Guid myId)
     {
-        // я даже на твой чертеж особо не смотрел. ну нормалды, можно еще в целом
-        // и твои так сказать чертежи = почти готовый код, на так скажем 15-20 процентов сделай сложнее. 
         var contacts = new List<Guid>();
 
         var query = "SELECT DISTINCT SenderId, ReceiverId FROM Messages WHERE SenderId = @myId OR ReceiverId = @myId";

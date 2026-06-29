@@ -32,8 +32,7 @@ public partial class MainWindow : Window
         this.Width = 800;
         this.Height = 600;
         this.Title = "LocalMimu";
-
-        // Корневой Panel (как у тебя было)
+        
         this.Content = new Panel()
         {
             Children =
@@ -72,159 +71,202 @@ new TextBox()
                             Width = 150,
                             Height = 35,
                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnLogClicked)),
-                            Content = "Войти"
-
+                            Content = "Войти",
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            HorizontalContentAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            VerticalContentAlignment = VerticalAlignment.Center
+                            
                         },
 
                         new TextBlock()
                         {
                             Text = "Регистрация",
                             HorizontalAlignment = HorizontalAlignment.Center
+                        },
+                        new TextBlock()
+                        {
+                            [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.StatusMessage)),
+                            Foreground = Brush.Parse("#810505"),
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            FontSize = 14
                         }
                     }
                 },
-                new Grid()
-                {
-                    ColumnDefinitions = new ColumnDefinitions("250,*"),
-                    Background = Brush.Parse("#121212"),
-                    [!Grid.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsLoginVisible)) {Converter = Avalonia.Data.Converters.BoolConverters.Not},
-                    Children =
-                    {
-
-                        new ListBox()
-{
-    [Grid.ColumnProperty] = 0,
-    Background = Brush.Parse("#141414"),
-
-    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ActiveChats)),
-    [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) { Mode = BindingMode.TwoWay },
-
-    ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
-    {
-        return new Border()
-        {
-            Styles =
-    {
-        new Style(x => x.OfType<ListBoxItem>().Class(":pointerover"))
-    {
-        Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) }
-    },
-    new Style(x => x.OfType<ListBoxItem>().Class(":selected"))
-    {
-        Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) }
-    }
-    },
-            BorderBrush = Brush.Parse("#2e2e2e"),
-            BorderThickness = Avalonia.Thickness.Parse("2"),
-            CornerRadius = Avalonia.CornerRadius.Parse("8"),
-            Margin = Avalonia.Thickness.Parse("1"),
-            Background = Brush.Parse("#161616"),
-
-            Child = new StackPanel()
-            {
-
-    Orientation = Orientation.Horizontal,
-    Spacing = 10,
-    Margin = Avalonia.Thickness.Parse("10"),
-    Children =
-    {
-        new Border()
-        {
-            Width = 30,
-            Height = 30,
-            CornerRadius = new Avalonia.CornerRadius(15),
-            Background = Brush.Parse("#424141"),
-            VerticalAlignment = VerticalAlignment.Center
-        },
-
-        new TextBlock()
-        {
-            [!TextBlock.TextProperty] = new Binding("Username"),
-            Foreground = Brushes.White,
-            FontWeight = FontWeight.Medium,
-            VerticalAlignment = VerticalAlignment.Center
-        }
-    }
-
-
-            }
-        };
-    })
-},
 new Grid()
 {
-    [Grid.ColumnProperty] = 1,
-    RowDefinitions = new RowDefinitions("40, *, 60"),
+    ColumnDefinitions = new ColumnDefinitions("250,*"),
     Background = Brush.Parse("#121212"),
+    [!Grid.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsLoginVisible)) {Converter = Avalonia.Data.Converters.BoolConverters.Not},
     Children =
     {
-        new Border()
+        // ==========================================
+        // левая колонка
+        // ==========================================
+        new Grid()
         {
-            [Grid.RowProperty] = 0,
-            Background = Brush.Parse("#1A1A1A"),
-            Child = new TextBlock()
+            [Grid.ColumnProperty] = 0,
+            RowDefinitions = new RowDefinitions("Auto, *"),
+            Background = Brush.Parse("#141414"),
+            Children = 
             {
-                [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.StatusMessage)),
-                Foreground = Brushes.White,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = Avalonia.Thickness.Parse("10,0")
-            }
-        },
-
-        new ListBox()
-        {
-            [Grid.RowProperty] = 1,
-            Background = Brushes.Transparent,
-            [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ChatMessages)),
-
-            ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
-            {
-                return new Border()
+                // СТРОКА 0: поиск
+                new Grid()
                 {
-                    Background = Brush.Parse("#202020"),
-                    CornerRadius = new Avalonia.CornerRadius(10),
-                    Margin = Avalonia.Thickness.Parse("5"),
-                    Padding = Avalonia.Thickness.Parse("10"),
-                    [!Border.HorizontalAlignmentProperty] = new Binding("SenderID") {Converter = new MessageConvertor(_vm.MyId) },
-                    Child = new TextBlock()
+                    [Grid.RowProperty] = 0,
+                    ColumnDefinitions = new ColumnDefinitions("*, Auto"),
+                    Margin = Avalonia.Thickness.Parse("10"),
+                    Children = 
                     {
-                        [!TextBlock.TextProperty] = new Binding("Text"),
-                        Foreground = Brushes.White,
-                        TextWrapping = TextWrapping.Wrap
+                        new TextBox()
+                        {
+                            [Grid.ColumnProperty] = 0,
+                            Watermark = "Поиск...",
+                            [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.SearchingText)) { Mode = BindingMode.TwoWay }
+                        },
+                        new Button()
+                        {
+                            [Grid.ColumnProperty] = 1,
+                            Content = "Найти",
+                            Margin = Avalonia.Thickness.Parse("5,0,0,0"),
+                            Background = Brush.Parse("#202020"),
+                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.SearchingUserAsync))
+                        }
                     }
-                };
-            })
+                },
+
+                // СТРОКА 1: список
+                new ListBox()
+                {
+                    [Grid.RowProperty] = 1,
+                    Background = Brush.Parse("#141414"),
+                    Styles =
+                    {
+                        new Style(x => x.OfType<ListBoxItem>().Class(":pointerover"))
+                        {
+                            Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) }
+                        },
+                        new Style(x => x.OfType<ListBoxItem>().Class(":selected"))
+                        {
+                            Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) }
+                        }
+                    },
+                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ActiveChats)),
+                    [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) { Mode = BindingMode.TwoWay },
+
+                    ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
+                    {
+                        return new Border()
+                        {
+                            BorderBrush = Brush.Parse("#2e2e2e"),
+                            BorderThickness = Avalonia.Thickness.Parse("2"),
+                            CornerRadius = Avalonia.CornerRadius.Parse("8"),
+                            Margin = Avalonia.Thickness.Parse("1"),
+                            Background = Brush.Parse("#161616"),
+                            Child = new StackPanel()
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 10,
+                                Margin = Avalonia.Thickness.Parse("10"),
+                                Children =
+                                {
+                                    new Border()
+                                    {
+                                        Width = 30,
+                                        Height = 30,
+                                        CornerRadius = new Avalonia.CornerRadius(15),
+                                        Background = Brush.Parse("#424141"),
+                                        VerticalAlignment = VerticalAlignment.Center
+                                    },
+                                    new TextBlock()
+                                    {
+                                        [!TextBlock.TextProperty] = new Binding("Username"),
+                                        Foreground = Brushes.White,
+                                        FontWeight = FontWeight.Medium,
+                                        VerticalAlignment = VerticalAlignment.Center
+                                    }
+                                }
+                            }
+                        };
+                    })
+                }
+            }
         },
 
         new Grid()
         {
-            [Grid.RowProperty] = 2,
-            ColumnDefinitions = new ColumnDefinitions("*, Auto"),
-            Background = Brush.Parse("#1E1E1E"),
+            [Grid.ColumnProperty] = 1,
+            RowDefinitions = new RowDefinitions("40, *, 60"),
+            Background = Brush.Parse("#121212"),
             Children =
             {
-                new TextBox()
+                new Border()
                 {
-                    [Grid.ColumnProperty] = 0,
-                    Watermark = "Написать сообщение...",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = Avalonia.Thickness.Parse("10"),
-                    [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewMessageText)) { Mode = BindingMode.TwoWay }
+                    [Grid.RowProperty] = 0,
+                    Background = Brush.Parse("#1A1A1A"),
+                    Child = new TextBlock()
+                    {
+                        [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.StatusMessage)),
+                        Foreground = Brushes.White,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = Avalonia.Thickness.Parse("10,0")
+                    }
                 },
-                new Button()
+
+                new ListBox()
                 {
-                    [Grid.ColumnProperty] = 1,
-                    Content = "Отправить",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = Avalonia.Thickness.Parse("0,0,10,0"),
-                    [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnSendClicked))
+                    [Grid.RowProperty] = 1,
+                    Background = Brushes.Transparent,
+                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ChatMessages)),
+                    
+                    ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
+                    {
+                        return new Border()
+                        {
+                            Background = Brush.Parse("#202020"),
+                            CornerRadius = new Avalonia.CornerRadius(10),
+                            Margin = Avalonia.Thickness.Parse("5"),
+                            Padding = Avalonia.Thickness.Parse("10"),
+                            [!Border.HorizontalAlignmentProperty] = new Binding("SenderID") {Converter = new MessageConvertor(_vm) },
+                            Child = new TextBlock()
+                            {
+                                [!TextBlock.TextProperty] = new Binding("Text"),
+                                Foreground = Brushes.White,
+                                TextWrapping = TextWrapping.Wrap
+                            }
+                        };
+                    })
+                },
+
+                new Grid()
+                {
+                    [Grid.RowProperty] = 2,
+                    ColumnDefinitions = new ColumnDefinitions("*, Auto"),
+                    Background = Brush.Parse("#1E1E1E"),
+                    Children =
+                    {
+                        new TextBox()
+                        {
+                            [Grid.ColumnProperty] = 0,
+                            Watermark = "Написать сообщение...",
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = Avalonia.Thickness.Parse("10"),
+                            [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewMessageText)) { Mode = BindingMode.TwoWay }
+                        },
+                        new Button()
+                        {
+                            [Grid.ColumnProperty] = 1,
+                            Content = "Отправить",
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = Avalonia.Thickness.Parse("0,0,10,0"),
+                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnSendClicked))
+                        }
+                    }
                 }
             }
         }
     }
 }
-                    }
-                }
             }
         };
     }
@@ -232,30 +274,31 @@ new Grid()
 
 public class MessageConvertor : IValueConverter
 {
-    private Guid myId;
-    public MessageConvertor(Guid id)
+
+    private readonly MainWindowViewModel _vm;
+    public MessageConvertor(MainWindowViewModel vm)
     {
-        myId = id;
+        _vm = vm;
     }
 
-    
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is Guid senderid) 
+        if (value is Guid senderid)
         {
-            if(senderid == myId)
+            if (senderid == _vm.MyId)
             {
-                return Avalonia.Layout.HorizontalAlignment.Right;
+                return HorizontalAlignment.Right;
             }
             else
             {
-                return Avalonia.Layout.HorizontalAlignment.Left;
+                return HorizontalAlignment.Left;
             }
 
 
         }
 
-        return BindingNotification.UnsetValue; 
+        return BindingNotification.UnsetValue;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -264,7 +307,7 @@ public class MessageConvertor : IValueConverter
     }
 
 
-    
+
 }
 
 

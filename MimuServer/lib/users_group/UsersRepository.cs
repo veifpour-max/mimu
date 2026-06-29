@@ -14,7 +14,7 @@ namespace LocalMimu.Repositories;
 public class UsersRepository
 {
     public bool IsAnomymous;
-    private readonly string _sqlPath = "Data Source=localmimu.db";
+    private readonly string _sqlPath = DbConfig.ConnectionString;
     public UsersRepository(string sql)
     {
         _sqlPath = sql;

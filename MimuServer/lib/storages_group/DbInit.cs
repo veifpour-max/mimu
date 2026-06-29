@@ -5,7 +5,7 @@ namespace LocalMimu.Repositories;
 
 public static class DbInitializer
 {
-    private const string ConnectionString = "Data Source=localmimu.db";
+    private static readonly string ConnectionString = DbConfig.ConnectionString;
 
     public static void Initialize()
     {

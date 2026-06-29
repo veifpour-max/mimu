@@ -100,6 +100,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
 
+    private string _search;
+
     private string _newMessageText;
     public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
     public ObservableCollection<Message> ChatMessages { get; } = new ObservableCollection<Message>();
@@ -125,6 +127,13 @@ public partial class MainWindowViewModel : ViewModelBase
         get => _isLoginVisible;
         set => SetProperty(ref _isLoginVisible, value);
     }
+
+    public string SearchingText
+    {
+        get => _search;
+        set => SetProperty(ref _search, value);
+    }
+
     public User? SelectedUser
     {
         get => _selectedUser;
@@ -200,6 +209,34 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = $"Ошибка загрузки истории: {ex.Message}";
+        }
+    }
+
+    public async Task SearchingUserAsync()
+    {
+        if (shTools.check(SearchingText))
+        {
+            var packet = new NetworkPacket(PacketType.SearchUser, SearchingText);
+
+            ServerState.rawText = null;
+
+            await _net.SendPacket(packet);
+
+            await ServerState.ResponseSignal.WaitAsync();
+
+            var desering = Deser.DeserJson<User>(ServerState.rawText);
+
+            if(desering != null)
+            {
+                ActiveChats.Add(desering);
+                SelectedUser = desering;
+                StatusMessage = $"Найден: {desering.Username}";
+            }
+            else if(desering == null)
+            {
+                StatusMessage = "Пользователь не найден";
+            }
+
         }
     }
 

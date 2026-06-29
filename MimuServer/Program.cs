@@ -9,9 +9,9 @@ using LocalMimu.Repositories;
 
 Dictionary<Guid, TcpClient> _clients = new();
 
-UsersRepository repo = new UsersRepository("Data Source=localmimu.db");
+UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
-MessagesRepository msgRepo = new MessagesRepository("Data Source=localmimu.db");
+MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
 
 object _lock = new object();
 
