@@ -12,6 +12,7 @@ using LocalMimu.Models;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MimuGui.Views;
 
@@ -32,7 +33,7 @@ public partial class MainWindow : Window
         this.Width = 800;
         this.Height = 600;
         this.Title = "LocalMimu";
-        
+
         this.Content = new Panel()
         {
             Children =
@@ -76,7 +77,7 @@ new TextBox()
                             HorizontalContentAlignment = HorizontalAlignment.Center,
                             VerticalAlignment = VerticalAlignment.Center,
                             VerticalContentAlignment = VerticalAlignment.Center
-                            
+
                         },
 
                         new TextBlock()
@@ -108,15 +109,15 @@ new Grid()
             [Grid.ColumnProperty] = 0,
             RowDefinitions = new RowDefinitions("Auto, *"),
             Background = Brush.Parse("#141414"),
-            Children = 
+            Children =
             {
                 // СТРОКА 0: поиск
                 new Grid()
                 {
                     [Grid.RowProperty] = 0,
-                    ColumnDefinitions = new ColumnDefinitions("*, Auto"),
+                    ColumnDefinitions = new ColumnDefinitions("*, Auto, Auto"),
                     Margin = Avalonia.Thickness.Parse("10"),
-                    Children = 
+                    Children =
                     {
                         new TextBox()
                         {
@@ -131,7 +132,20 @@ new Grid()
                             Margin = Avalonia.Thickness.Parse("5,0,0,0"),
                             Background = Brush.Parse("#202020"),
                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.SearchingUserAsync))
+                        },
+
+                        new Button()
+                        {          
+                            [Grid.ColumnProperty] = 2,
+                            Content = "X",
+                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.CancelSearch)),
+                            Background = Brushes.Transparent,
+                            Foreground = Brushes.White,
+                            CornerRadius = Avalonia.CornerRadius.Parse("18"),
+                            Margin = Avalonia.Thickness.Parse("5,0,0,0")
                         }
+
+                        
                     }
                 },
 
@@ -155,6 +169,50 @@ new Grid()
                     [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) { Mode = BindingMode.TwoWay },
 
                     ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
+                    {
+                        return new Border()
+                        {
+                            BorderBrush = Brush.Parse("#2e2e2e"),
+                            BorderThickness = Avalonia.Thickness.Parse("2"),
+                            CornerRadius = Avalonia.CornerRadius.Parse("8"),
+                            Margin = Avalonia.Thickness.Parse("1"),
+                            Background = Brush.Parse("#161616"),
+                            Child = new StackPanel()
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 10,
+                                Margin = Avalonia.Thickness.Parse("10"),
+                                Children =
+                                {
+                                    new Border()
+                                    {
+                                        Width = 30,
+                                        Height = 30,
+                                        CornerRadius = new Avalonia.CornerRadius(15),
+                                        Background = Brush.Parse("#424141"),
+                                        VerticalAlignment = VerticalAlignment.Center
+                                    },
+                                    new TextBlock()
+                                    {
+                                        [!TextBlock.TextProperty] = new Binding("Username"),
+                                        Foreground = Brushes.White,
+                                        FontWeight = FontWeight.Medium,
+                                        VerticalAlignment = VerticalAlignment.Center
+                                    }
+                                }
+                            }
+                        };
+                    })
+                },
+                new ListBox()
+                {
+                    [Grid.RowProperty] = 1,
+                    Background= Brush.Parse("#161616"),
+                    [!ListBox.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsSearchVisible)),
+                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.SearchResult)),
+                    [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) {Mode = BindingMode.TwoWay},
+
+                        ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
                     {
                         return new Border()
                         {
@@ -218,12 +276,12 @@ new Grid()
                     [Grid.RowProperty] = 1,
                     Background = Brushes.Transparent,
                     [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ChatMessages)),
-                    
+
                     ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
                     {
                         return new Border()
                         {
-                            Background = Brush.Parse("#202020"),
+                            [!Border.BackgroundProperty] = new Binding("SenderID") {Converter = new BubbleColorConverter(_vm)},
                             CornerRadius = new Avalonia.CornerRadius(10),
                             Margin = Avalonia.Thickness.Parse("5"),
                             Padding = Avalonia.Thickness.Parse("10"),
@@ -307,7 +365,34 @@ public class MessageConvertor : IValueConverter
     }
 
 
+}
 
+public class BubbleColorConverter : IValueConverter
+{
+    private readonly MainWindowViewModel _vm;
+    
+    public BubbleColorConverter(MainWindowViewModel vm)
+    {
+        _vm = vm;
+    }
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is Guid senderId)
+        {
+            if (senderId == _vm.MyId)
+            {
+                return Brush.Parse("#16395c"); 
+            }
+            return Brush.Parse("#202020");
+        }
+        return Brush.Parse("#202020");
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 

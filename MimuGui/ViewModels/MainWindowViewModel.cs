@@ -10,6 +10,9 @@ using System.Security.Cryptography;
 using System.IO;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using Avalonia.Media;
 
 
 namespace MimuGui.ViewModels;
@@ -93,16 +96,20 @@ public partial class MainWindowViewModel : ViewModelBase
     public string Greeting { get; } = "LocalMimu v0.1";
     public string InputText { get; set; } = "Пиши сюда...";
 
+    public Brush MessagesBrush;
+
     private string _username = "";
     private string _password = "";
     private Guid _myId;
     private User? _selectedUser;
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
-
+    public bool IsSearchVisible {get; set;}
     private string _search;
 
     private string _newMessageText;
+
+    public ObservableCollection<User> SearchResult {get; set;} = new();
     public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
     public ObservableCollection<Message> ChatMessages { get; } = new ObservableCollection<Message>();
     public string Username
@@ -132,6 +139,12 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         get => _search;
         set => SetProperty(ref _search, value);
+    }
+
+    public Brush MessageColor
+    {
+        get => MessagesBrush;
+        set => SetProperty(ref MessagesBrush, value); 
     }
 
     public User? SelectedUser
@@ -173,6 +186,18 @@ public partial class MainWindowViewModel : ViewModelBase
           }
 
       });
+    }
+
+    public void FlaggingSearch()
+    {
+        IsSearchVisible = true;
+        SearchResult.Clear();
+    }
+    public void CancelSearch()
+    {
+        SearchingText="";
+        SearchResult.Clear();
+        IsSearchVisible = false;
     }
     public async Task LoadChatHistory(Guid targetId)
     {
@@ -219,6 +244,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var packet = new NetworkPacket(PacketType.SearchUser, SearchingText);
 
             ServerState.rawText = null;
+            FlaggingSearch();
 
             await _net.SendPacket(packet);
 
@@ -228,12 +254,24 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if(desering != null)
             {
-                ActiveChats.Add(desering);
-                SelectedUser = desering;
-                StatusMessage = $"Найден: {desering.Username}";
+                var findingSame = ActiveChats.FirstOrDefault(i => i.Id == desering.Id);
+                SearchResult.Add(desering);
+                if(findingSame != null)
+                {
+                   SelectedUser = findingSame; 
+                }
+                else if(findingSame == null)
+                {
+                    ActiveChats.Add(desering);
+                    SelectedUser = desering;
+                    StatusMessage = $"Найден: {desering.Username}";
+                }
+                
             }
             else if(desering == null)
             {
+                var dummy = new User("Такого польователя не существует", "Никого нет");
+                SearchResult.Add(dummy);
                 StatusMessage = "Пользователь не найден";
             }
 
