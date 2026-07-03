@@ -135,8 +135,9 @@ new Grid()
                         },
 
                         new Button()
-                        {          
+                        {
                             [Grid.ColumnProperty] = 2,
+                            [!Button.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsSearchVisible)),
                             Content = "X",
                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.CancelSearch)),
                             Background = Brushes.Transparent,
@@ -145,7 +146,7 @@ new Grid()
                             Margin = Avalonia.Thickness.Parse("5,0,0,0")
                         }
 
-                        
+
                     }
                 },
 
@@ -170,40 +171,54 @@ new Grid()
 
                     ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
                     {
+                        // левая колонка - чаты
                         return new Border()
                         {
-                            BorderBrush = Brush.Parse("#2e2e2e"),
-                            BorderThickness = Avalonia.Thickness.Parse("2"),
-                            CornerRadius = Avalonia.CornerRadius.Parse("8"),
-                            Margin = Avalonia.Thickness.Parse("1"),
-                            Background = Brush.Parse("#161616"),
+                            CornerRadius = Avalonia.CornerRadius.Parse("6"),
+                            Background = Brushes.Transparent,
                             Child = new StackPanel()
                             {
                                 Orientation = Orientation.Horizontal,
                                 Spacing = 10,
-                                Margin = Avalonia.Thickness.Parse("10"),
+                                Margin = Avalonia.Thickness.Parse("0,6"),
                                 Children =
                                 {
                                     new Border()
                                     {
-                                        Width = 30,
-                                        Height = 30,
-                                        CornerRadius = new Avalonia.CornerRadius(15),
+                                        Width = 40,
+                                        Height = 40,
+                                        CornerRadius = new Avalonia.CornerRadius(20),
                                         Background = Brush.Parse("#424141"),
                                         VerticalAlignment = VerticalAlignment.Center
                                     },
-                                    new TextBlock()
+                                    new StackPanel()
                                     {
-                                        [!TextBlock.TextProperty] = new Binding("Username"),
-                                        Foreground = Brushes.White,
-                                        FontWeight = FontWeight.Medium,
-                                        VerticalAlignment = VerticalAlignment.Center
+                                        VerticalAlignment = VerticalAlignment.Center,
+                                        Children=
+                                        {
+                                            new TextBlock()
+                                            {
+                                            [!TextBlock.TextProperty] = new Binding("Username"),
+                                            Foreground = Brushes.White,
+                                            FontWeight = FontWeight.Medium,
+                                            VerticalAlignment = VerticalAlignment.Center
+                                            },
+                                            new TextBlock()
+                                            {
+                                                Text = "Последнее сообщение",
+                                                Foreground = Brush.Parse("#69686869"),
+                                                FontSize = 12
+                                            }
+                                        
+                                        }
+
                                     }
                                 }
                             }
                         };
                     })
                 },
+                // поиск
                 new ListBox()
                 {
                     [Grid.RowProperty] = 1,
@@ -225,14 +240,14 @@ new Grid()
                             {
                                 Orientation = Orientation.Horizontal,
                                 Spacing = 10,
-                                Margin = Avalonia.Thickness.Parse("10"),
+                                Margin = Avalonia.Thickness.Parse("0,6"),
                                 Children =
                                 {
                                     new Border()
                                     {
-                                        Width = 30,
-                                        Height = 30,
-                                        CornerRadius = new Avalonia.CornerRadius(15),
+                                        Width = 40,
+                                        Height = 40,
+                                        CornerRadius = new Avalonia.CornerRadius(20),
                                         Background = Brush.Parse("#424141"),
                                         VerticalAlignment = VerticalAlignment.Center
                                     },
@@ -370,7 +385,7 @@ public class MessageConvertor : IValueConverter
 public class BubbleColorConverter : IValueConverter
 {
     private readonly MainWindowViewModel _vm;
-    
+
     public BubbleColorConverter(MainWindowViewModel vm)
     {
         _vm = vm;
@@ -382,7 +397,7 @@ public class BubbleColorConverter : IValueConverter
         {
             if (senderId == _vm.MyId)
             {
-                return Brush.Parse("#16395c"); 
+                return Brush.Parse("#16395c");
             }
             return Brush.Parse("#202020");
         }

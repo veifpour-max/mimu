@@ -104,12 +104,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private User? _selectedUser;
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
-    public bool IsSearchVisible {get; set;}
+    public bool IsSearchVisible { get; set; }
     private string _search;
 
     private string _newMessageText;
 
-    public ObservableCollection<User> SearchResult {get; set;} = new();
+    public ObservableCollection<User> SearchResult { get; set; } = new();
     public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
     public ObservableCollection<Message> ChatMessages { get; } = new ObservableCollection<Message>();
     public string Username
@@ -144,7 +144,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public Brush MessageColor
     {
         get => MessagesBrush;
-        set => SetProperty(ref MessagesBrush, value); 
+        set => SetProperty(ref MessagesBrush, value);
     }
 
     public User? SelectedUser
@@ -155,6 +155,8 @@ public partial class MainWindowViewModel : ViewModelBase
             if (SetProperty(ref _selectedUser, value) && value != null)
             {
                 _ = LoadChatHistory(value.Id);
+                IsSearchVisible = false;
+                SearchResult.Clear();
             }
         }
     }
@@ -169,9 +171,13 @@ public partial class MainWindowViewModel : ViewModelBase
       {
           try
           {
-
-
-              if (ChatMessages != null && SelectedUser != null && msg.SenderID == SelectedUser.Id)
+              var findingSame = ActiveChats.FirstOrDefault(i => i.Id == msg.SenderID);
+              if (findingSame == null)
+              {
+                  var user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
+                  ActiveChats.Add(user);
+              }
+              if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
               {
                   ChatMessages.Add(msg);
               }
@@ -182,7 +188,7 @@ public partial class MainWindowViewModel : ViewModelBase
           }
           catch (Exception ex)
           {
-              StatusMessage = $"Ошибка отривовки: {ex.Message}";
+              StatusMessage = $"Ошибка отриcовки: {ex.Message}";
           }
 
       });
@@ -190,12 +196,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public void FlaggingSearch()
     {
-        IsSearchVisible = true;
         SearchResult.Clear();
+        IsSearchVisible = true;
     }
     public void CancelSearch()
     {
-        SearchingText="";
+        SearchingText = "";
         SearchResult.Clear();
         IsSearchVisible = false;
     }
@@ -252,23 +258,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
             var desering = Deser.DeserJson<User>(ServerState.rawText);
 
-            if(desering != null)
+            if (desering != null)
             {
-                var findingSame = ActiveChats.FirstOrDefault(i => i.Id == desering.Id);
                 SearchResult.Add(desering);
-                if(findingSame != null)
-                {
-                   SelectedUser = findingSame; 
-                }
-                else if(findingSame == null)
-                {
-                    ActiveChats.Add(desering);
-                    SelectedUser = desering;
-                    StatusMessage = $"Найден: {desering.Username}";
-                }
-                
             }
-            else if(desering == null)
+            else if (desering == null)
             {
                 var dummy = new User("Такого польователя не существует", "Никого нет");
                 SearchResult.Add(dummy);
@@ -318,7 +312,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = "Заполните все поля!";
         }
-
     }
     public async Task OnSendClicked()
     {
@@ -327,6 +320,11 @@ public partial class MainWindowViewModel : ViewModelBase
             if (SelectedUser == null || !shTools.check(NewMessageText))
             {
                 return;
+            }
+            var checking = ActiveChats.FirstOrDefault(i => i.Id == SelectedUser.Id);
+            if (checking == null)
+            {
+                ActiveChats.Add(SelectedUser);
             }
             var msg = new Message(NewMessageText, _myId, SelectedUser.Id, MessageType.Text);
             string sering = Deser.SerJson(msg);
@@ -342,9 +340,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = $"Ошибка отправки: {ex.Message}";
         }
-
-
-
     }
 
 }

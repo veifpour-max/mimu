@@ -106,7 +106,6 @@ public class UsersRepository
 
     public async Task<User?> AuthAsync(string username, string clientHash)
     {
-        // как я понимаю мы отказались от findbyusername из-за паролей и невозможности добавления их в этот метод, ведь он используется и в поиске, и в реге, и во входе
 
         var query = "SELECT Id, Username, Name, PasswordHash FROM Users WHERE Username = @username LIMIT 1";
 
