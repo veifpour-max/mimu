@@ -13,6 +13,9 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Reflection;
+using Avalonia.Input;
+using Microsoft.VisualBasic;
 
 namespace MimuGui.Views;
 
@@ -230,7 +233,7 @@ new Grid()
                         ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
                     {
                         return new Border()
-                        {
+                        {     
                             BorderBrush = Brush.Parse("#2e2e2e"),
                             BorderThickness = Avalonia.Thickness.Parse("2"),
                             CornerRadius = Avalonia.CornerRadius.Parse("8"),
@@ -291,7 +294,7 @@ new Grid()
                     [Grid.RowProperty] = 1,
                     Background = Brushes.Transparent,
                     [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ChatMessages)),
-
+                    
                     ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
                     {
                         return new Border()
@@ -308,7 +311,7 @@ new Grid()
                                 TextWrapping = TextWrapping.Wrap
                             }
                         };
-                    })
+                    }),
                 },
 
                 new Grid()
@@ -320,11 +323,13 @@ new Grid()
                     {
                         new TextBox()
                         {
+                            AcceptsReturn = true,
                             [Grid.ColumnProperty] = 0,
                             Watermark = "Написать сообщение...",
                             VerticalAlignment = VerticalAlignment.Center,
                             Margin = Avalonia.Thickness.Parse("10"),
                             [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewMessageText)) { Mode = BindingMode.TwoWay }
+                            
                         },
                         new Button()
                         {
@@ -332,7 +337,8 @@ new Grid()
                             Content = "Отправить",
                             VerticalAlignment = VerticalAlignment.Center,
                             Margin = Avalonia.Thickness.Parse("0,0,10,0"),
-                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnSendClicked))
+                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnSendClicked)),
+                            HotKey = new KeyGesture(Key.Enter),       
                         }
                     }
                 }

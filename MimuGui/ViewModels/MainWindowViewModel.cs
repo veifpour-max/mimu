@@ -13,6 +13,9 @@ using System.Text.Json;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Media;
+using Avalonia.Markup.Declarative;
+using System.Reflection;
+using System.Dynamic;
 
 
 namespace MimuGui.ViewModels;
@@ -104,9 +107,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private User? _selectedUser;
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
-    public bool IsSearchVisible { get; set; }
+    public bool isSearchVisible = false;
     private string _search;
-
     private string _newMessageText;
 
     public ObservableCollection<User> SearchResult { get; set; } = new();
@@ -123,6 +125,12 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         get => _password;
         set => SetProperty(ref _password, value);
+    }
+
+    public bool IsSearchVisible
+    {
+        get => isSearchVisible;
+        set => SetProperty(ref isSearchVisible, value);
     }
     public string StatusMessage
     {
@@ -155,8 +163,7 @@ public partial class MainWindowViewModel : ViewModelBase
             if (SetProperty(ref _selectedUser, value) && value != null)
             {
                 _ = LoadChatHistory(value.Id);
-                IsSearchVisible = false;
-                SearchResult.Clear();
+                CancelSearch();
             }
         }
     }
@@ -202,7 +209,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public void CancelSearch()
     {
         SearchingText = "";
-        SearchResult.Clear();
         IsSearchVisible = false;
     }
     public async Task LoadChatHistory(Guid targetId)
@@ -231,6 +237,7 @@ public partial class MainWindowViewModel : ViewModelBase
                         {
                             ChatMessages.Add(msg);
                         }
+                        
                     });
 
                     StatusMessage = $"Чат с @{SelectedUser?.Username}";
@@ -249,18 +256,20 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             var packet = new NetworkPacket(PacketType.SearchUser, SearchingText);
 
-            ServerState.rawText = null;
             FlaggingSearch();
+            ServerState.rawText = null;
 
             await _net.SendPacket(packet);
 
             await ServerState.ResponseSignal.WaitAsync();
 
             var desering = Deser.DeserJson<User>(ServerState.rawText);
+            StatusMessage = $"{IsSearchVisible}";
 
             if (desering != null)
             {
                 SearchResult.Add(desering);
+                // StatusMessage = $"Пользователь {desering.Username} существует";
             }
             else if (desering == null)
             {
