@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using LocalMimu.Models;
 using System.Collections.ObjectModel;
@@ -25,6 +24,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly SessionManager _sessionManager = new SessionManager();
     public MainWindowViewModel()
     {
+        _net.OnMessageReceived += HandleIncomingMessage;
+        
         _ = InitilizeAppAsync();
     }
     private async Task InitilizeAppAsync()
@@ -48,6 +49,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 StatusMessage = $"Ошибка подключения к серверу: {ex.Message}";
                 IsLoginVisible = true;
+
             }
         }
     }
@@ -67,11 +69,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 _net.StartListening();
                 IsLoginVisible = false;
 
-                ServerState.rawText = null;
-                await _net.RequestChatsAsync(_myId);
-                await ServerState.ResponseSignal.WaitAsync();
-
-                var chats = Deser.DeserJson<List<User>>(ServerState.rawText);
+                var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
+                var chats = Deser.DeserJson<List<User>>(result);
                 if (chats != null)
                 {
                     ActiveChats.Clear();
@@ -222,11 +221,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 var joinedStr = string.Join("|", _myId, targetId);
                 var packet = new NetworkPacket(PacketType.GetChatsHistory, joinedStr);
 
-                ServerState.rawText = null;
-                await _net.SendPacket(packet);
-                await ServerState.ResponseSignal.WaitAsync();
-
-                var history = Deser.DeserJson<List<Message>>(ServerState.rawText);
+                var result = await _net.SendAndWaitAsync(packet);
+                var history = Deser.DeserJson<List<Message>>(result);
 
                 if (history != null)
                 {
@@ -257,19 +253,14 @@ public partial class MainWindowViewModel : ViewModelBase
             var packet = new NetworkPacket(PacketType.SearchUser, SearchingText);
 
             FlaggingSearch();
-            ServerState.rawText = null;
+            var result = await _net.SendAndWaitAsync(packet);
 
-            await _net.SendPacket(packet);
-
-            await ServerState.ResponseSignal.WaitAsync();
-
-            var desering = Deser.DeserJson<User>(ServerState.rawText);
+            var desering = Deser.DeserJson<User>(result);
             StatusMessage = $"{IsSearchVisible}";
 
             if (desering != null)
             {
                 SearchResult.Add(desering);
-                // StatusMessage = $"Пользователь {desering.Username} существует";
             }
             else if (desering == null)
             {
@@ -286,23 +277,19 @@ public partial class MainWindowViewModel : ViewModelBase
         if (shTools.check(Username) && shTools.check(Password))
         {
             StatusMessage = "Вход..";
-            var hash = Crypto.SHA256Encode(Password);
-            var loginPayload = new LoginPayload(Username, hash);
+            var loginPayload = new LoginPayload(Username, Password);
             var user = await _net.AuthenticateAsync(loginPayload);
 
             if (user != null)
             {
                 _myId = user.Id;
                 StatusMessage = $"Добро пожаловать, {user.Username}";
-                _sessionManager.SaveSession(user.Username, hash, "127.0.0.1");
+                _sessionManager.SaveSession(user.Username, Password, "127.0.0.1");
                 _net.StartListening();
                 IsLoginVisible = false;
 
-                ServerState.rawText = null;
-                await _net.RequestChatsAsync(_myId);
-                await ServerState.ResponseSignal.WaitAsync();
-
-                var chats = Deser.DeserJson<List<User>>(ServerState.rawText);
+                var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
+                var chats = Deser.DeserJson<List<User>>(result);
                 if (chats != null)
                 {
                     ActiveChats.Clear();

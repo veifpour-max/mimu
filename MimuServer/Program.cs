@@ -50,7 +50,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine("Пакет Auth дошел до сервера.");
                 var data = Deser.DeserJson<LoginPayload>(authPacket.PayLoad);
 
-                User? user = await repo.AuthAsync(data.Username, data.PasswordHash);
+                User? user = await repo.AuthAsync(data.Username, data.Password);
 
                 if (user != null)
                 {
@@ -74,7 +74,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             if (authPacket != null && authPacket.Type == PacketType.Register)
             {
                 var data = Deser.DeserJson<RegisterPayload>(authPacket.PayLoad);
-                bool success = await repo.Register(data.id, data.Name, data.Username, data.PasswordHash);
+                bool success = await repo.Register(data.id, data.Name, data.Username, data.Password);
 
                 if (success)
                 {

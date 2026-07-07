@@ -8,6 +8,8 @@ public class NetworkService
     private StreamWriter _writer;
     public event Action<Message>? OnMessageReceived;
 
+    private Queue<TaskCompletionSource<string>> _pending = new();
+
     public async Task ConnectAsync(string ip, int port)
     {
         _client = new TcpClient();
@@ -16,15 +18,17 @@ public class NetworkService
         _reader = new StreamReader(stream);
         _writer = new StreamWriter(stream) { AutoFlush = true };
     }
+
+    public async Task<string> SendAndWaitAsync(NetworkPacket packet)
+    {
+        var tcs = new TaskCompletionSource<string>();
+        _pending.Enqueue(tcs);
+        await SendPacket(packet);
+        return await tcs.Task;
+    }
     public async Task SendPacket(NetworkPacket packet)
     {
         var send = Deser.SerJson(packet);
-        await _writer.WriteLineAsync(send);
-
-    }
-    public async Task? SendAuthInfo(string info)
-    {
-        var send = Deser.SerJson(info);
         await _writer.WriteLineAsync(send);
     }
     public async Task<bool> RegisterAsync(RegisterPayload registerPayload)
@@ -70,11 +74,6 @@ public class NetworkService
 
 
     }
-    public async Task RequestChatsAsync(Guid myId)
-    {
-        var send = new NetworkPacket(PacketType.GetChats, myId.ToString());
-        await SendPacket(send);
-    }
     public void StartListening()
     {
         _ = StartReceiving();
@@ -105,12 +104,10 @@ public class NetworkService
 
                 if (msg != null && msg.Type == PacketType.ServerResponse)
                 {
-                    ServerState.rawText = msg.PayLoad;
-                    if (ServerState.ResponseSignal.CurrentCount == 0)
+                    if(_pending.TryDequeue(out var tcs))
                     {
-                        ServerState.ResponseSignal.Release();
+                        tcs.SetResult(msg.PayLoad);
                     }
-
                 }
                 if(msg != null && msg.Type == PacketType.Ping)
                 {

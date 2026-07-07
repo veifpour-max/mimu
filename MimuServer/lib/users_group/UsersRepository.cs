@@ -13,7 +13,6 @@ namespace LocalMimu.Repositories;
 
 public class UsersRepository
 {
-    public bool IsAnomymous;
     private readonly string _sqlPath = DbConfig.ConnectionString;
     public UsersRepository(string sql)
     {
@@ -53,28 +52,24 @@ public class UsersRepository
 
     }
 
-    public async Task AddUser(User user, string passwordHash)
+    public async Task AddUser(User user, string passwordHash, string salt)
     {
         using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
-            var query = "INSERT INTO Users (Id, Username, Name, PasswordHash) VALUES (@id, @username, @name, @passwordHash);";
+            var query = "INSERT INTO Users (Id, Username, Name, PasswordHash, Salt) VALUES (@id, @username, @name, @passwordHash, @salt);";
             using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@id", user.Id.ToString());
                 command.Parameters.AddWithValue("@username", user.Username);
                 command.Parameters.AddWithValue("@name", user.Name);
                 command.Parameters.AddWithValue("@passwordHash", passwordHash);
+                command.Parameters.AddWithValue("@salt", salt);
 
                 await command.ExecuteNonQueryAsync();
             }
 
         }
-    }
-
-    public void AnonymousMode()
-    {
-        IsAnomymous = true;
     }
 
     public async Task<User?> FindByUsername(string username)
@@ -104,10 +99,10 @@ public class UsersRepository
         }
     }
 
-    public async Task<User?> AuthAsync(string username, string clientHash)
+    public async Task<User?> AuthAsync(string username, string clientPassword)
     {
 
-        var query = "SELECT Id, Username, Name, PasswordHash FROM Users WHERE Username = @username LIMIT 1";
+        var query = "SELECT Id, Username, Name, PasswordHash, Salt FROM Users WHERE Username = @username LIMIT 1";
 
         using(var connection = new SqliteConnection(_sqlPath))
         {
@@ -122,9 +117,12 @@ public class UsersRepository
                         var id = Guid.Parse(reader.GetString(0));
                         var uname = reader.GetString(1);
                         var name = reader.GetString(2);
-                        var pass = reader.GetString(3);
+                        var passHash = reader.GetString(3);
+                        var salt = reader.GetString(4);
 
-                        if(pass == clientHash)
+                        var expectedHash = Crypto.SHA256Encode(clientPassword + salt);
+
+                        if(expectedHash == passHash)
                         {
                             var user = new User(name, uname) {Id = id};
                             user.Status = UserStatus.Online;
@@ -166,7 +164,8 @@ public class UsersRepository
     public async Task<bool> Register(Guid id, string name, string username, string password)
     {
         var existingUser = await FindByUsername(username);
-
+        var salt = Guid.NewGuid().ToString("N");
+        var hash = Crypto.SHA256Encode(password + salt);
         if (existingUser != null)
         {
             return false;
@@ -174,7 +173,7 @@ public class UsersRepository
         else
         {
             User regUser = new User(name, username) {Id = id};
-            await AddUser(regUser, password);
+            await AddUser(regUser, hash, salt);
             return true;
         }
     }

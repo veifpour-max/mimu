@@ -18,7 +18,8 @@ public static class DbInitializer
                 Id Text PRIMARY KEY,
                 Username TEXT UNIQUE NOT NULL,
                 Name TEXT NOT NULL,
-                PasswordHash TEXT NOT NULL
+                PasswordHash TEXT NOT NULL,
+                Salt TEXT NOT NULL DEFAULT ''
             );";
 
             var createMessagesTable = @"

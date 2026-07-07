@@ -37,8 +37,7 @@ while (!IsRegistred)
             var password = Console.ReadLine();
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name) && shTools.check(password))
             {
-                var hash = Crypto.SHA256Encode(password);
-                var registerUser = new RegisterPayload(name, username, hash);
+                var registerUser = new RegisterPayload(name, username, password);
                 var success = await net.RegisterAsync(registerUser);
                 if (success)
                 {
@@ -63,8 +62,7 @@ while (!IsRegistred)
         {
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
             {
-                var encrypted = Crypto.SHA256Encode(password);
-                var loginToServer = new LoginPayload(username, encrypted);
+                var loginToServer = new LoginPayload(username, password);
                 var serverAnswer = await net.AuthenticateAsync(loginToServer);
                 if (serverAnswer != null)
                 {
@@ -112,14 +110,9 @@ while (true)
             }
 
             var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
-
-            ServerState.rawText = null;
-
-            await net.SendPacket(searchingUser);
+            var answer = await net.SendAndWaitAsync(searchingUser);
             Console.WriteLine("Запрос отправлен");
-            await ServerState.ResponseSignal.WaitAsync();
-
-            var deser = Deser.DeserJson<User>(ServerState.rawText);
+            var deser = Deser.DeserJson<User>(answer);
             if (deser != null)
             {
                 Console.WriteLine($"[ПОИСК] Найден: {deser.Name} | @{deser.Username}");
@@ -138,23 +131,15 @@ while (true)
             if (!string.IsNullOrWhiteSpace(input))
             {
                 var npMsg = new NetworkPacket(PacketType.SearchUser, input);
-                await net.SendPacket(npMsg);
-
-                ServerState.rawText = null;
-                await ServerState.ResponseSignal.WaitAsync();
-
-                var targetUser = Deser.DeserJson<User>(ServerState.rawText);
+                var answer = await net.SendAndWaitAsync(npMsg);
+                var targetUser = Deser.DeserJson<User>(answer);
                 if (targetUser != null)
                 {
                     string splitedIds = string.Join("|", myFakeId, targetUser.Id);
                     NetworkPacket packetToSend = new NetworkPacket(PacketType.GetChatsHistory, splitedIds);
 
-                    await net.SendPacket(packetToSend);
-
-                    ServerState.rawText = null;
-                    await ServerState.ResponseSignal.WaitAsync();
-
-                    var ResponseAbtUser = Deser.DeserJson<List<Message>>(ServerState.rawText);
+                    var serverAnswer = await net.SendAndWaitAsync(packetToSend);
+                    var ResponseAbtUser = Deser.DeserJson<List<Message>>(serverAnswer);
 
                     Console.Clear();
 
@@ -202,12 +187,9 @@ while (true)
         if (choice == "3")
         {
             var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
-            await net.SendPacket(newPacket);
 
-            ServerState.rawText = null;
-            await ServerState.ResponseSignal.WaitAsync();
-
-            var contactId = Deser.DeserJson<List<User>>(ServerState.rawText);
+            var answerFromServer = await net.SendAndWaitAsync(newPacket);
+            var contactId = Deser.DeserJson<List<User>>(answerFromServer);
 
             if (contactId != null && contactId.Count > 0)
             {
