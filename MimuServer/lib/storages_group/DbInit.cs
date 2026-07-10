@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 
 namespace LocalMimu.Repositories;
@@ -7,11 +8,16 @@ public static class DbInitializer
 {
     private static readonly string ConnectionString = DbConfig.ConnectionString;
 
-    public static void Initialize()
+    public static async Task Initialize()
     {
-        using(var connection = new SqliteConnection(ConnectionString)){
+        using (var connection = new SqliteConnection(ConnectionString))
+        {
+            await connection.OpenAsync();
 
-            connection.Open();
+            using (var walCommand = new SqliteCommand("PRAGMA journal_mode=WAL;", connection))
+            {
+                await walCommand.ExecuteNonQueryAsync();
+            }
 
             var createUsersTable = @"
             CREATE TABLE IF NOT EXISTS Users(
@@ -37,12 +43,19 @@ public static class DbInitializer
 
             using (var command = new SqliteCommand(createUsersTable, connection))
             {
-                command.ExecuteNonQuery();
+                await command.ExecuteNonQueryAsync();
             }
             using (var command = new SqliteCommand(createMessagesTable, connection))
             {
-                command.ExecuteNonQuery();
+                await command.ExecuteNonQueryAsync();
             }
+            var createIndex = @"
+            CREATE INDEX IF NOT EXISTS idx_messages_conversation ON Messages(SenderId, ReceiverId, SentAt);";
+            using (var command = new SqliteCommand(createIndex, connection))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
+
 
         }
     }

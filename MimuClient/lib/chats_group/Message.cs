@@ -2,11 +2,11 @@ using LocalMimu.Models;
 
 namespace LocalMimu.Models;
 
-public enum MessageType{ Auth, Text, System }
+public enum MessageType{Text}
 
 public class Message
 {
-   public string? Text {get; set;} 
+   public string? Text {get; set;}
    public Guid SenderID {get; set;}
    public DateTime SentAt {get; set;}
    public MessageStatus Status {get; set;}
@@ -14,7 +14,6 @@ public class Message
    public MessageType Type {get; set;}
    public string? SenderUsername {get; set;}
    public Message(){}
-
    public Message(string text, Guid senderId, Guid receiverId, MessageType type) 
     {
         Text = text;

@@ -1,4 +1,5 @@
-﻿using System.Formats.Asn1;
+﻿using System.Collections.Concurrent;
+using System.Formats.Asn1;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -7,7 +8,7 @@ using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
 
-Dictionary<Guid, TcpClient> _clients = new();
+ConcurrentDictionary<Guid, TcpClient> _clients = new();
 
 UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
@@ -19,7 +20,7 @@ TcpListener server = new TcpListener(IPAddress.Any, 5000);
 
 server.Start();
 
-DbInitializer.Initialize();
+await DbInitializer.Initialize();
 
 Console.WriteLine("Сервер запущен. Ожидание подключения...");
 
@@ -58,7 +59,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var packet = new NetworkPacket(PacketType.ServerResponse, serUser);
                     var final = Deser.SerJson(packet);
                     await writer.WriteLineAsync(final);
-                    lock (_lock) { _clients[user.Id] = client; }
+                    _clients[user.Id] = client;
                     assignedId = user.Id;
                     break;
                 }
@@ -78,7 +79,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 if (success)
                 {
-                    lock (_lock) { _clients[data.id] = client; }
+                    _clients[data.id] = client;
                     assignedId = data.id;
                     string serverResponse = "1";
                     var jsonAnswer = JsonSerializer.Serialize(serverResponse);
@@ -197,7 +198,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         {
             if (assignedId != Guid.Empty)
             {
-                lock (_lock) { _clients.Remove(assignedId); }
+                _clients.TryRemove(assignedId, out _);
             }
             if (client.Connected)
             {
@@ -237,7 +238,6 @@ async Task BroadcastMessage(string messageText) // этот пока не тро
 }
 async Task SendPrivateMessage(Message msg, string rawJson)
 {
-    // фух, вроде разобрался.
     TcpClient targetClient = null;
     lock (_lock)
     {
@@ -254,8 +254,11 @@ async Task SendPrivateMessage(Message msg, string rawJson)
                 await writer.WriteLineAsync(rawJson);
                 Console.WriteLine($"Сообщение отправлено. {msg.ReceiverID}");
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Ошибка доставки сообщения: {msg.ReceiverID} >> {ex.Message}");
+
+                _clients.TryRemove(msg.ReceiverID, out _);
             }
         }
     }
