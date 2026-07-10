@@ -2,15 +2,41 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using LocalMimu.Models;
 
 NetworkService net = new NetworkService();
 Guid myFakeId = Guid.NewGuid();
+try
+{
+    try
+    {
+        Ping ping = new();
+        var pinging = await ping.SendPingAsync("146.158.101.114");
+        if (pinging.Status == IPStatus.Success)
+        {
+            Console.WriteLine("Пинг дошел");
+            Console.WriteLine("Пробую подключиться....");
+            await net.ConnectAsync("146.158.101.114", 7777);
 
-await net.ConnectAsync("146.158.101.114", 443);
-Console.WriteLine("[CLIENT] Вы подключены к серверу Mimu!");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Не дошел... {ex.Message}");
+
+    }
+
+
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Не удалось подключиться к серверу: {ex.Message}");
+}
+
 
 bool IsRegistred = false;
 

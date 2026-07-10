@@ -16,7 +16,7 @@ MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
 
 object _lock = new object();
 
-TcpListener server = new TcpListener(IPAddress.Any, 443);
+TcpListener server = new TcpListener(IPAddress.Any, 7777);
 
 server.Start();
 
