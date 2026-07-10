@@ -41,7 +41,7 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 StatusMessage = "Подключение к серверу..";
-                await _net.ConnectAsync("127.0.0.1", 5000);
+                await _net.ConnectAsync("146.158.101.114", 443);
                 StatusMessage = "Готов ко входу";
                 IsLoginVisible = true;
             }
@@ -58,7 +58,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            await _net.ConnectAsync(session.ServerAddress, 5000);
+            await _net.ConnectAsync("146.158.101.114", 5000);
             var loginPayload = new LoginPayload(session.Username, session.PasswordHash);
             var user = await _net.AuthenticateAsync(loginPayload);
 

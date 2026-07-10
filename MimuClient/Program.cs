@@ -9,7 +9,7 @@ using LocalMimu.Models;
 NetworkService net = new NetworkService();
 Guid myFakeId = Guid.NewGuid();
 
-await net.ConnectAsync("127.0.0.1", 5000);
+await net.ConnectAsync("146.158.101.114", 443);
 Console.WriteLine("[CLIENT] Вы подключены к серверу Mimu!");
 
 bool IsRegistred = false;
