@@ -20,7 +20,10 @@ try
         {
             Console.WriteLine("Пинг дошел");
             Console.WriteLine("Пробую подключиться....");
-            await net.ConnectAsync("146.158.101.114", 7777);
+            string ip = "146.158.101.114";
+            int port = 7777;
+            Console.WriteLine($"Подключаюсь к {ip}:{port}");
+            await net.ConnectAsync(ip, port);
 
         }
     }
