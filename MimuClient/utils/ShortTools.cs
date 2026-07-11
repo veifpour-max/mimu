@@ -13,7 +13,6 @@ public static class shTools
 
 public static string FormatTime(DateTime time)
     {
-        // тяжелее кода не писал, очень тяжело реально, ошибаешься как на первом дне. я долбаеб конченный вот откуда я мог заболеть да еще и так хреново
         var timingDiff = DateTime.Now - time;
 
         if (timingDiff.TotalSeconds >= 0 && timingDiff.TotalSeconds < 60)

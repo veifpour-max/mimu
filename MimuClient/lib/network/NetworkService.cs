@@ -1,4 +1,6 @@
 using System.Net.Sockets;
+using System.Net.Security;
+using System.ComponentModel;
 
 namespace LocalMimu.Models;
 public class NetworkService
@@ -15,8 +17,10 @@ public class NetworkService
         _client = new TcpClient();
         await _client.ConnectAsync(ip, port);
         var stream = _client.GetStream();
-        _reader = new StreamReader(stream);
-        _writer = new StreamWriter(stream) { AutoFlush = true };
+        var sslStream = new SslStream(stream, false, (sender, cert, chain, errors) => true);
+        await sslStream.AuthenticateAsClientAsync(ip);
+        _reader = new StreamReader(sslStream);
+        _writer = new StreamWriter(sslStream) { AutoFlush = true };
     }
 
     public async Task<string> SendAndWaitAsync(NetworkPacket packet)

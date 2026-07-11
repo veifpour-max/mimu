@@ -7,12 +7,17 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
+using System.Security.Cryptography.X509Certificates;
+using System.Net.Security;
+using System.Data;
 
-ConcurrentDictionary<Guid, TcpClient> _clients = new();
+ConcurrentDictionary<Guid, ClientConnection> _clients = new();
 
 UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
 MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
+
+X509Certificate2 serverCert = new X509Certificate2("server.pfx", "12345");
 
 object _lock = new object();
 
@@ -35,8 +40,21 @@ while (true)
 async Task HandleClientAsync(TcpClient client, MessagesRepository messagesRepository)
 {
     var stream = client.GetStream();
-    var writer = new StreamWriter(stream) { AutoFlush = true };
-    var reader = new StreamReader(stream);
+    var sslStream = new SslStream(stream, false);
+
+    try
+    {
+        await sslStream.AuthenticateAsServerAsync(serverCert, clientCertificateRequired: false, checkCertificateRevocation: true);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Ошибка рукопожатия: {ex.Message}");
+        client.Close();
+        return;
+    }
+    var writer = new StreamWriter(sslStream) { AutoFlush = true };
+    var reader = new StreamReader(sslStream);
+    var connetion = new ClientConnection {Writer = writer, Client = client};
     Guid assignedId = Guid.Empty;
     while (true)
     {
@@ -58,8 +76,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var serUser = Deser.SerJson(user);
                     var packet = new NetworkPacket(PacketType.ServerResponse, serUser);
                     var final = Deser.SerJson(packet);
-                    await writer.WriteLineAsync(final);
-                    _clients[user.Id] = client;
+                    await connetion.SendAsync(final);
+                    _clients[user.Id] = connetion;
                     assignedId = user.Id;
                     break;
                 }
@@ -67,7 +85,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 {
                     var packet = new NetworkPacket(PacketType.ServerResponse, "");
                     var final = Deser.SerJson(packet);
-                    await writer.WriteLineAsync(final);
+                    await connetion.SendAsync(final);
                     Console.WriteLine("Ошибка авторизации: неверный пароль");
                 }
             }
@@ -79,11 +97,11 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 if (success)
                 {
-                    _clients[data.id] = client;
+                    _clients[data.id] = connetion;
                     assignedId = data.id;
                     string serverResponse = "1";
                     var jsonAnswer = JsonSerializer.Serialize(serverResponse);
-                    await writer.WriteLineAsync(jsonAnswer);
+                    await connetion.SendAsync(jsonAnswer);
                     Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
                     break;
                 }
@@ -106,8 +124,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                         await Task.Delay(30000);
                         var ping = new NetworkPacket(PacketType.Ping, "");
                         var serPing = Deser.SerJson(ping);
-
-                        await writer.WriteLineAsync(serPing);
+                        await connetion.SendAsync(serPing);
                     }
                 }
                 catch (Exception ex)
@@ -190,7 +207,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var netPack = new NetworkPacket(PacketType.ServerResponse, serHistory);
                 var finalPack = Deser.SerJson(netPack);
 
-                await writer.WriteLineAsync(finalPack);
+                await connetion.SendAsync(finalPack);
             }
 
         }
@@ -212,61 +229,52 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
     }
 
 }
-async Task BroadcastMessage(string messageText) // этот пока не трогаю, он и не нужен.
+//async Task BroadcastMessage(string messageText) // этот пока не трогаю, он и не нужен.
+//{
+//byte[] data = System.Text.Encoding.UTF8.GetBytes(messageText);
+//foreach (var pair in _clients)
+//{
+//  try
+// {
+//TcpClient c = pair.Value;
+
+//  if (c.Connected)
+//   {
+//    await c.GetStream().WriteAsync(data);
+//  }
+
+//   }
+//   catch (Exception ex)
+//  {
+//      Console.WriteLine($"[Критическая ошибка связи] {ex.Message}");
+//   continue;
+
+// }
+// }
+
+//}
+async Task SendPrivateMessage(Message msg, string rawJson)
 {
-    byte[] data = System.Text.Encoding.UTF8.GetBytes(messageText);
-    foreach (var pair in _clients)
+
+    ClientConnection targetConnection = null;
+    _clients.TryGetValue(msg.ReceiverID, out targetConnection);
+    if (targetConnection != null && targetConnection.Client.Connected)
     {
         try
         {
-            TcpClient c = pair.Value;
-
-            if (c.Connected)
-            {
-                await c.GetStream().WriteAsync(data);
-            }
-
+            await targetConnection.SendAsync(rawJson);
+            Console.WriteLine($"Сообщение отправлено. {msg.ReceiverID}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Критическая ошибка связи] {ex.Message}");
-            continue;
+            Console.WriteLine($"Ошибка доставки сообщения: {msg.ReceiverID} >> {ex.Message}");
 
+            _clients.TryRemove(msg.ReceiverID, out _);
         }
     }
-
 }
-async Task SendPrivateMessage(Message msg, string rawJson)
-{
-    TcpClient targetClient = null;
-    lock (_lock)
-    {
-        _clients.TryGetValue(msg.ReceiverID, out targetClient);
-    }
-    if (targetClient != null)
-    {
-        if (targetClient.Connected)
-        {
-            try
-            {
-                var stream = targetClient.GetStream();
-                var writer = new StreamWriter(stream) { AutoFlush = true };
-                await writer.WriteLineAsync(rawJson);
-                Console.WriteLine($"Сообщение отправлено. {msg.ReceiverID}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка доставки сообщения: {msg.ReceiverID} >> {ex.Message}");
 
-                _clients.TryRemove(msg.ReceiverID, out _);
-            }
-        }
-    }
-    else
-    {
-        Console.WriteLine($"[SERVER] Пользователь {msg.ReceiverID} оффлайн. Сообщение в базе данных");
-    }
-}
+
 
 
 
