@@ -16,6 +16,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using Avalonia.Input;
 using Microsoft.VisualBasic;
+using System.Threading.Tasks;
 
 namespace MimuGui.Views;
 
@@ -27,12 +28,46 @@ public partial class MainWindow : Window
     {
         _vm = new MainWindowViewModel();
         DataContext = _vm;
-
         BuildUI();
+        _vm.ChatMessages.CollectionChanged += (s, e) =>
+    {
+    if (_vm.ChatMessages.Count > 0)
+    {
+        _chat.SelectedIndex = _vm.ChatMessages.Count - 1;
     }
+    };
+
+
+    }
+
+    public ListBox _chat { get; set; }
 
     private void BuildUI()
     {
+        _chat = new ListBox()
+        {
+            [Grid.RowProperty] = 1,
+            Background = Brushes.Transparent,
+            [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ChatMessages)),
+
+            ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
+            {
+                return new Border()
+                {
+                    [!Border.BackgroundProperty] = new Binding("SenderID") { Converter = new BubbleColorConverter(_vm) },
+                    CornerRadius = new Avalonia.CornerRadius(10),
+                    Margin = Avalonia.Thickness.Parse("5"),
+                    Padding = Avalonia.Thickness.Parse("10"),
+                    [!Border.HorizontalAlignmentProperty] = new Binding("SenderID") { Converter = new MessageConvertor(_vm) },
+                    Child = new TextBlock()
+                    {
+                        [!TextBlock.TextProperty] = new Binding("Text"),
+                        Foreground = Brushes.White,
+                        TextWrapping = TextWrapping.Wrap
+                    }
+                };
+            })
+        };
         this.Width = 800;
         this.Height = 600;
         this.Title = "LocalMimu";
@@ -212,17 +247,13 @@ new Grid()
                                                 Foreground = Brush.Parse("#69686869"),
                                                 FontSize = 12
                                             }
-                                        
+
                                         }
 
                                     },
-                                    new Panel()
-                                    {
-                                        HorizontalAlignment = HorizontalAlignment.Center,
-                                        VerticalAlignment = VerticalAlignment.Bottom,
-                                
-                                    }
-                                    
+
+
+
                                 }
                             }
                         };
@@ -240,7 +271,7 @@ new Grid()
                         ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
                     {
                         return new Border()
-                        {     
+                        {
                             BorderBrush = Brush.Parse("#2e2e2e"),
                             BorderThickness = Avalonia.Thickness.Parse("2"),
                             CornerRadius = Avalonia.CornerRadius.Parse("8"),
@@ -296,30 +327,7 @@ new Grid()
                     }
                 },
 
-                new ListBox()
-                {
-                    [Grid.RowProperty] = 1,
-                    Background = Brushes.Transparent,
-                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ChatMessages)),
-                    
-                    ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
-                    {
-                        return new Border()
-                        {
-                            [!Border.BackgroundProperty] = new Binding("SenderID") {Converter = new BubbleColorConverter(_vm)},
-                            CornerRadius = new Avalonia.CornerRadius(10),
-                            Margin = Avalonia.Thickness.Parse("5"),
-                            Padding = Avalonia.Thickness.Parse("10"),
-                            [!Border.HorizontalAlignmentProperty] = new Binding("SenderID") {Converter = new MessageConvertor(_vm) },
-                            Child = new TextBlock()
-                            {
-                                [!TextBlock.TextProperty] = new Binding("Text"),
-                                Foreground = Brushes.White,
-                                TextWrapping = TextWrapping.Wrap
-                            }
-                        };
-                    }),
-                },
+                _chat,
 
                 new Grid()
                 {
@@ -336,7 +344,7 @@ new Grid()
                             VerticalAlignment = VerticalAlignment.Center,
                             Margin = Avalonia.Thickness.Parse("10"),
                             [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewMessageText)) { Mode = BindingMode.TwoWay }
-                            
+
                         },
                         new Button()
                         {
@@ -345,13 +353,40 @@ new Grid()
                             VerticalAlignment = VerticalAlignment.Center,
                             Margin = Avalonia.Thickness.Parse("0,0,10,0"),
                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnSendClicked)),
-                            HotKey = new KeyGesture(Key.Enter),       
+                            HotKey = new KeyGesture(Key.Enter),
                         }
                     }
                 }
             }
         }
     }
+},
+new StackPanel()
+{
+    Orientation = Orientation.Horizontal,
+    HorizontalAlignment = HorizontalAlignment.Right,
+    VerticalAlignment = VerticalAlignment.Top,
+    Margin = Avalonia.Thickness.Parse("15"),
+    Spacing = 8,
+    Children =
+    {
+        new Border()
+        {
+            Width = 10,
+            Height = 10,
+            CornerRadius = new Avalonia.CornerRadius(5),
+            VerticalAlignment = VerticalAlignment.Center,
+            [!Border.BackgroundProperty] = new Binding(nameof(MainWindowViewModel.IndicatorColor)),
+        },
+        new TextBlock
+        {
+            [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.IndicatorText)),
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 12
+        }
+    }
+
 }
             }
         };

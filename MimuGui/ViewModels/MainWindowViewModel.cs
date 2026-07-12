@@ -183,6 +183,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Dispatcher.UIThread.Post(() =>
             {
                 IndicatorText = "Mimu: Подключено";
+                IndicatorColor = Brushes.Green;
             });
         }
         if(states == ConnectionStates.Connecting)
@@ -190,6 +191,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Dispatcher.UIThread.Post(() =>
             {
                 IndicatorText = "Mimu: Подключение...";
+                IndicatorColor = Brushes.Yellow;
             });
         }
         if(states == ConnectionStates.Disconnected)
@@ -197,6 +199,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Dispatcher.UIThread.Post(() =>
             {
                 IndicatorText = "Mimu: Отключено";
+                IndicatorColor = Brushes.Gray;
             });
         }
     }
