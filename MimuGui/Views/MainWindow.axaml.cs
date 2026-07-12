@@ -173,7 +173,7 @@ new Grid()
                     [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) { Mode = BindingMode.TwoWay },
 
                     ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
-                    {
+                    { 
                         // левая колонка - чаты
                         return new Border()
                         {
@@ -215,7 +215,14 @@ new Grid()
                                         
                                         }
 
+                                    },
+                                    new Panel()
+                                    {
+                                        HorizontalAlignment = HorizontalAlignment.Center,
+                                        VerticalAlignment = VerticalAlignment.Bottom,
+                                
                                     }
+                                    
                                 }
                             }
                         };

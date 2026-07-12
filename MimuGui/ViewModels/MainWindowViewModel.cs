@@ -4,18 +4,8 @@ using LocalMimu.Models;
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using System.Collections.Generic;
-using Microsoft.VisualBasic;
-using System.Security.Cryptography;
-using System.IO;
-using System.Text.Json.Serialization;
-using System.Text.Json;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Avalonia.Media;
-using Avalonia.Markup.Declarative;
-using System.Reflection;
-using System.Dynamic;
-
 
 namespace MimuGui.ViewModels;
 
@@ -25,6 +15,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         _net.OnMessageReceived += HandleIncomingMessage;
+        _net.OnStateChanged += (state) => StatingConnection(state);
         
         _ = InitilizeAppAsync();
     }
@@ -109,6 +100,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool isSearchVisible = false;
     private string _search;
     private string _newMessageText;
+    private IBrush indicator = Brushes.Gray;
+    private string? indicatorText = "Ожидание...";
 
     public ObservableCollection<User> SearchResult { get; set; } = new();
     public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
@@ -154,6 +147,17 @@ public partial class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref MessagesBrush, value);
     }
 
+    public IBrush IndicatorColor
+    {
+        get => indicator;
+        set => SetProperty(ref indicator, value);
+    }
+    public string? IndicatorText
+    {
+        get => indicatorText;
+        set => SetProperty(ref indicatorText, value);
+    }
+
     public User? SelectedUser
     {
         get => _selectedUser;
@@ -170,6 +174,31 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         get => _newMessageText;
         set => SetProperty(ref _newMessageText, value);
+    }
+
+    private void StatingConnection(ConnectionStates? states)
+    {  
+        if(states == ConnectionStates.Connected)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                IndicatorText = "Mimu: Подключено";
+            });
+        }
+        if(states == ConnectionStates.Connecting)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                IndicatorText = "Mimu: Подключение...";
+            });
+        }
+        if(states == ConnectionStates.Disconnected)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                IndicatorText = "Mimu: Отключено";
+            });
+        }
     }
     private void HandleIncomingMessage(Message msg)
     {

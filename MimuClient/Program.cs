@@ -25,13 +25,11 @@ try
             int port = 8000;
             Console.WriteLine($"Подключаюсь к {ip}:{port}");
             await net.ConnectAsync(ip, port);
-
         }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Не дошел... {ex.Message}");
-
     }
 
 

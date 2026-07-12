@@ -14,11 +14,13 @@ public class NetworkService
 
     public async Task ConnectAsync(string ip, int port)
     {
+        OnStateChanged?.Invoke(ConnectionStates.Connecting);
         _client = new TcpClient();
         await _client.ConnectAsync(ip, port);
         var stream = _client.GetStream();
         var sslStream = new SslStream(stream, false, (sender, cert, chain, errors) => true);
         await sslStream.AuthenticateAsClientAsync(ip);
+        OnStateChanged?.Invoke(ConnectionStates.Connected);
         _reader = new StreamReader(sslStream);
         _writer = new StreamWriter(sslStream) { AutoFlush = true };
     }
@@ -82,6 +84,8 @@ public class NetworkService
     {
         _ = StartReceiving();
     }
+
+    public event Action<ConnectionStates?>? OnStateChanged;
     public async Task StartReceiving()
     {
         while (true)
@@ -121,6 +125,7 @@ public class NetworkService
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка! {ex.Message}");
+                OnStateChanged.Invoke(ConnectionStates.Disconnected);
                 break;
             }
 
