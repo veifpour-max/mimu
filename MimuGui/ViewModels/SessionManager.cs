@@ -33,9 +33,9 @@ public class SessionManager
         _filePath = Path.Combine(folderPath, $"session{suffix}.bin");
 
     }
-    public void SaveSession(string username, string pass, string address)
+    public void SaveSession(string username, string pass, Guid myId, string address)
     {
-        var newSession = new SessionModel(username, pass, address);
+        var newSession = new SessionModel(username, pass, myId, address);
         var json = Deser.SerJson(newSession);
         var rawBytes = System.Text.Encoding.UTF8.GetBytes(json);
 

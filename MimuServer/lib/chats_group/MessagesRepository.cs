@@ -20,7 +20,7 @@ public class MessagesRepository
             var query = "INSERT INTO Messages (Id, Text, SenderId, ReceiverId, SentAt, Status) VALUES (@id, @text, @senderId, @receiverId, @sentAt, @status);";
             using(var command = new SqliteCommand(query, connection))
             {
-                command.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
+                command.Parameters.AddWithValue("@id", msg.Id.ToString());
                 command.Parameters.AddWithValue("@text", msg.Text);
                 command.Parameters.AddWithValue("@senderId", msg.SenderID.ToString());
                 command.Parameters.AddWithValue("@receiverId", msg.ReceiverID.ToString());
@@ -34,7 +34,7 @@ public class MessagesRepository
     public async Task<List<Message>> GetChatHistoryAsync(Guid myId, Guid targetId)
     {
         var history = new List<Message>();
-        var query = "SELECT Text, SenderId, ReceiverId, SentAt, Status FROM Messages WHERE (SenderId = @myId AND ReceiverId = @targetId) OR (SenderId = @targetId AND ReceiverId = @myId) ORDER BY SentAt ASC;";
+        var query = "SELECT Id, Text, SenderId, ReceiverId, SentAt, Status FROM Messages WHERE (SenderId = @myId AND ReceiverId = @targetId) OR (SenderId = @targetId AND ReceiverId = @myId) ORDER BY SentAt ASC;";
 
         using(var connection = new SqliteConnection(_sqlpath))
         {
@@ -47,13 +47,14 @@ public class MessagesRepository
                 {
                     while(await reader.ReadAsync())
                     {
-                        var text = reader.GetString(0);
-                        var sender = Guid.Parse(reader.GetString(1));
-                        var receiver = Guid.Parse(reader.GetString(2));
-                        var sentAt = DateTime.Parse(reader.GetString(3));
-                        var status = (MessageStatus)reader.GetInt32(4);
+                        var msgId = Guid.Parse(reader.GetString(0));
+                        var text = reader.GetString(1);
+                        var sender = Guid.Parse(reader.GetString(2));
+                        var receiver = Guid.Parse(reader.GetString(3));
+                        var sentAt = DateTime.Parse(reader.GetString(4));
+                        var status = (MessageStatus)reader.GetInt32(5);
 
-                        var msg = new Message(text, sender, receiver, MessageType.Text) {SentAt = sentAt, Status = status};
+                        var msg = new Message(text, sender, receiver, MessageType.Text) {Id = msgId, SentAt = sentAt, Status = status};
                         history.Add(msg);             
                     }
                 }

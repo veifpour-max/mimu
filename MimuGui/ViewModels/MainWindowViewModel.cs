@@ -12,6 +12,7 @@ namespace MimuGui.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly SessionManager _sessionManager = new SessionManager();
+    private readonly LocalMessagesRepository _localMessages = new();
     public MainWindowViewModel()
     {
         _net.OnMessageReceived += HandleIncomingMessage;
@@ -21,6 +22,17 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     private async Task InitilizeAppAsync()
     {
+        try
+        {
+            await _localMessages.InitializeLocalDatabase();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Ошибка БД: {ex.Message}";
+            IsLoginVisible = true;
+            return;
+        }
+
         var savedSession = _sessionManager.LoadSession();
 
         if (savedSession != null)
@@ -40,13 +52,26 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 StatusMessage = $"Ошибка подключения к серверу: {ex.Message}";
                 IsLoginVisible = true;
-
+                throw;
             }
         }
     }
 
     private async Task AutoLoginAsync(SessionModel session)
     {
+
+        _myId = session.Id;
+        StatusMessage = $"Оффлайн режим, {session.Username}";
+        IsLoginVisible = false;
+
+        var localContactsIds = await _localMessages.GetLocalContactsAsync(_myId);
+        ActiveChats.Clear();
+        foreach(var id in localContactsIds)
+        {
+            ActiveChats.Add(new User("Оффлайн", "Контакт") {Id = id});
+        }
+
+
         try
         {
             await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
@@ -75,13 +100,11 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 _sessionManager.DeleteSession();
                 StatusMessage = "Войдите заново. Сессия устарела или потеряна";
-                IsLoginVisible = true;
             }
         }
         catch (Exception ex)
         {
             StatusMessage = $"Ошибка авто-входа: {ex.Message}";
-            IsLoginVisible = true;
             throw;
         }
     }
@@ -254,7 +277,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     private void HandleIncomingMessage(Message msg)
     {
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(async () =>
       {
           try
           {
@@ -266,6 +289,7 @@ public partial class MainWindowViewModel : ViewModelBase
               }
               if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
               {
+                  await _localMessages.SaveMessagesAsync(msg);
                   ChatMessages.Add(msg);
               }
               else
@@ -299,6 +323,19 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 StatusMessage = $"Загрузка чата с @{SelectedUser?.Username}...";
 
+                var resultFromLoading = await _localMessages.GetChatHistoryAsync(_myId, targetId);
+
+                if (resultFromLoading != null)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        ChatMessages.Clear();
+                        foreach (var c in resultFromLoading)
+                        {
+                            ChatMessages.Add(c);
+                        }
+                    });
+                }
                 var joinedStr = string.Join("|", _myId, targetId);
                 var packet = new NetworkPacket(PacketType.GetChatsHistory, joinedStr);
 
@@ -307,7 +344,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 if (history != null)
                 {
-                    Dispatcher.UIThread.Post(() =>
+                    foreach (var msg in history)
+                    {
+                        await _localMessages.SaveMessagesAsync(msg);
+                    }
+                    Dispatcher.UIThread.Post(async () =>
                     {
                         ChatMessages.Clear();
                         foreach (var msg in history)
@@ -365,7 +406,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 _myId = user.Id;
                 StatusMessage = $"Добро пожаловать, {user.Username}";
-                _sessionManager.SaveSession(user.Username, Password, "127.0.0.1");
+                _sessionManager.SaveSession(user.Username, Password, user.Id, "127.0.0.1");
                 _net.StartListening();
                 IsLoginVisible = false;
 
@@ -404,6 +445,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 ActiveChats.Add(SelectedUser);
             }
             var msg = new Message(NewMessageText, _myId, SelectedUser.Id, MessageType.Text);
+            await _localMessages.SaveMessagesAsync(msg);
             string sering = Deser.SerJson(msg);
             var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);
             await _net.SendPacket(newPacket);
