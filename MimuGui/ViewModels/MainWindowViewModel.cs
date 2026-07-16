@@ -16,7 +16,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _net.OnMessageReceived += HandleIncomingMessage;
         _net.OnStateChanged += (state) => StatingConnection(state);
-        
+
         _ = InitilizeAppAsync();
     }
     private async Task InitilizeAppAsync()
@@ -32,7 +32,7 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 StatusMessage = "Подключение к серверу..";
-                await _net.ConnectAsync("146.158.101.114", 8000);
+                await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
                 StatusMessage = "Готов ко входу";
                 IsLoginVisible = true;
             }
@@ -49,7 +49,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            await _net.ConnectAsync("146.158.101.114", 8000);
+            await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
             var loginPayload = new LoginPayload(session.Username, session.PasswordHash);
             var user = await _net.AuthenticateAsync(loginPayload);
 
@@ -82,6 +82,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = $"Ошибка авто-входа: {ex.Message}";
             IsLoginVisible = true;
+            throw;
         }
     }
 
@@ -89,10 +90,13 @@ public partial class MainWindowViewModel : ViewModelBase
     public string Greeting { get; } = "LocalMimu v0.1";
     public string InputText { get; set; } = "Пиши сюда...";
 
+    private readonly AppConfig _config = ConfigLoader.Load();
     public Brush MessagesBrush;
 
     private string _username = "";
     private string _password = "";
+
+    private bool _isReconnecting = false;
     private Guid _myId;
     private User? _selectedUser;
     public string _StatusMessage = "";
@@ -176,9 +180,54 @@ public partial class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _newMessageText, value);
     }
 
+    private async Task ReconnectLoopAsync()
+    {
+        if (_isReconnecting)
+        {
+            return;
+        }
+        else if (!_isReconnecting)
+        {
+            _isReconnecting = true;
+        }
+        int delay = 1000;
+        while (true)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                IndicatorText = "Mimu: Переподключение...";
+                IndicatorColor = Brushes.Yellow;
+            });
+            try
+            {
+                var session = _sessionManager.LoadSession();
+                if (session == null)
+                {
+                    break;
+                }
+                await AutoLoginAsync(session);
+                _isReconnecting = false;
+                break;
+            }
+            catch (Exception ex)
+            {
+                delay *= 2;
+                if (delay > 30000)
+                {
+                    delay = 30000;
+                }
+                Dispatcher.UIThread.Post(() =>
+                {
+                    IndicatorText = $"Переподключение: повтор через {delay / 1000} сек...";
+                });
+                await Task.Delay(delay);
+            }
+        }
+    }
+
     private void StatingConnection(ConnectionStates? states)
-    {  
-        if(states == ConnectionStates.Connected)
+    {
+        if (states == ConnectionStates.Connected)
         {
             Dispatcher.UIThread.Post(() =>
             {
@@ -186,7 +235,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 IndicatorColor = Brushes.Green;
             });
         }
-        if(states == ConnectionStates.Connecting)
+        if (states == ConnectionStates.Connecting)
         {
             Dispatcher.UIThread.Post(() =>
             {
@@ -194,11 +243,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 IndicatorColor = Brushes.Yellow;
             });
         }
-        if(states == ConnectionStates.Disconnected)
+        if (states == ConnectionStates.Disconnected)
         {
+            _ = ReconnectLoopAsync();
             Dispatcher.UIThread.Post(() =>
             {
-                IndicatorText = "Mimu: Отключено";
                 IndicatorColor = Brushes.Gray;
             });
         }
@@ -265,7 +314,7 @@ public partial class MainWindowViewModel : ViewModelBase
                         {
                             ChatMessages.Add(msg);
                         }
-                        
+
                     });
 
                     StatusMessage = $"Чат с @{SelectedUser?.Username}";

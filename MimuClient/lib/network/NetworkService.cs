@@ -3,6 +3,7 @@ using System.Net.Security;
 using System.ComponentModel;
 
 namespace LocalMimu.Models;
+
 public class NetworkService
 {
     private TcpClient _client;
@@ -104,7 +105,8 @@ public class NetworkService
                         if (finalMsg != null)
                         {
                             OnMessageReceived?.Invoke(finalMsg);
-                            Console.WriteLine($"{shTools.FormatTime(finalMsg.SentAt)} | {finalMsg.SenderUsername}: | {finalMsg.Text} ");
+                            Console.WriteLine($"\n[{shTools.FormatTime(finalMsg.SentAt)}] | {finalMsg.SenderUsername}: {finalMsg.Text}");
+                            Console.Write("Вы: ");
                         }
                     }
                 }
@@ -112,12 +114,12 @@ public class NetworkService
 
                 if (msg != null && msg.Type == PacketType.ServerResponse)
                 {
-                    if(_pending.TryDequeue(out var tcs))
+                    if (_pending.TryDequeue(out var tcs))
                     {
                         tcs.SetResult(msg.PayLoad);
                     }
                 }
-                if(msg != null && msg.Type == PacketType.Ping)
+                if (msg != null && msg.Type == PacketType.Ping)
                 {
                     await SendPacket(new NetworkPacket(PacketType.Pong, ""));
                 }

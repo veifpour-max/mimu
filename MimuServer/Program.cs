@@ -229,30 +229,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
     }
 
 }
-//async Task BroadcastMessage(string messageText) // этот пока не трогаю, он и не нужен.
-//{
-//byte[] data = System.Text.Encoding.UTF8.GetBytes(messageText);
-//foreach (var pair in _clients)
-//{
-//  try
-// {
-//TcpClient c = pair.Value;
-
-//  if (c.Connected)
-//   {
-//    await c.GetStream().WriteAsync(data);
-//  }
-
-//   }
-//   catch (Exception ex)
-//  {
-//      Console.WriteLine($"[Критическая ошибка связи] {ex.Message}");
-//   continue;
-
-// }
-// }
-
-//}
 async Task SendPrivateMessage(Message msg, string rawJson)
 {
 

@@ -11,18 +11,21 @@ using LocalMimu.Models;
 
 NetworkService net = new NetworkService();
 Guid myFakeId = Guid.NewGuid();
+
+AppConfig _config = ConfigLoader.Load();
+
 try
 {
     try
     {
         Ping ping = new();
-        var pinging = await ping.SendPingAsync("146.158.101.114");
+        var pinging = await ping.SendPingAsync(_config.ServerIp);
         if (pinging.Status == IPStatus.Success)
         {
             Console.WriteLine("Пинг дошел");
             Console.WriteLine("Пробую подключиться....");
-            string ip = "146.158.101.114";
-            int port = 8000;
+            string ip = _config.ServerIp;
+            int port = _config.ServerPort;
             Console.WriteLine($"Подключаюсь к {ip}:{port}");
             await net.ConnectAsync(ip, port);
         }
