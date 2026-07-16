@@ -64,11 +64,11 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = $"Оффлайн режим, {session.Username}";
         IsLoginVisible = false;
 
-        var localContactsIds = await _localMessages.GetLocalContactsAsync(_myId);
+        var localUsers = await _localMessages.GetLocalUsersAsync();
         ActiveChats.Clear();
-        foreach(var id in localContactsIds)
+        foreach(var user in localUsers)
         {
-            ActiveChats.Add(new User("Оффлайн", "Контакт") {Id = id});
+            ActiveChats.Add(user);
         }
 
 
@@ -418,6 +418,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     foreach (var c in chats)
                     {
                         ActiveChats.Add(c);
+                        await _localMessages.SaveUserAsync(c);
                     }
                 }
             }

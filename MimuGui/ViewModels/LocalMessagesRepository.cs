@@ -43,13 +43,62 @@ public class LocalMessagesRepository
                 SentAt TEXT NOT NULL,
                 Status INTEGER NOT NULL
             );";
+            var createLocalUsersTable = @"
+            CREATE TABLE IF NOT EXISTS LocalUsers(
+            Id TEXT PRIMARY KEY,
+            Username TEXT NOT NULL,
+            Name TEXT NOT NULL
+            );";
 
             using (var command = new SqliteCommand(createLocalMessagesTable, connection))
             {
                 await command.ExecuteNonQueryAsync();
             }
+            using (var command = new SqliteCommand(createLocalUsersTable, connection))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
         }
 
+    }
+
+    public async Task SaveUserAsync(User user)
+    {
+        var query = "INSERT OR REPLACE INTO LocalUsers (Id, Username, Name) VALUES (@id, @username, @name);";
+        using (var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@id", user.Id.ToString());
+                command.Parameters.AddWithValue("@username", user.Username);
+                command.Parameters.AddWithValue("@name", user.Name);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+    }
+
+    public async Task<List<User>> GetLocalUsersAsync()
+    {
+        var users = new List<User>();
+        var query = "SELECT Id, Username, Name FROM LocalUsers;";
+
+        using (var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            using (var reader = await command.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var id = Guid.Parse(reader.GetString(0));
+                    var username = reader.GetString(1);
+                    var name = reader.GetString(2);
+                    users.Add(new User(name, username) { Id = id });
+                }
+            }
+        }
+        return users;
     }
 
     public async Task SaveMessagesAsync(Message msg)
@@ -94,7 +143,7 @@ public class LocalMessagesRepository
                         var sentAt = DateTime.Parse(reader.GetString(4));
                         var status = (MessageStatus)reader.GetInt32(5);
 
-                        var msg = new Message(text, sender, receiver, MessageType.Text) {Id = msgId, SentAt = sentAt, Status = status };
+                        var msg = new Message(text, sender, receiver, MessageType.Text) { Id = msgId, SentAt = sentAt, Status = status };
                         history.Add(msg);
                     }
                 }
