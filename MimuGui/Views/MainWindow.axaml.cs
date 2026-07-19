@@ -31,10 +31,10 @@ public partial class MainWindow : Window
         BuildUI();
         _vm.ChatMessages.CollectionChanged += (s, e) =>
     {
-    if (_vm.ChatMessages.Count > 0)
-    {
-        _chat.SelectedIndex = _vm.ChatMessages.Count - 1;
-    }
+        if (_vm.ChatMessages.Count > 0)
+        {
+            _chat.SelectedIndex = _vm.ChatMessages.Count - 1;
+        }
     };
 
 
@@ -59,11 +59,26 @@ public partial class MainWindow : Window
                     Margin = Avalonia.Thickness.Parse("5"),
                     Padding = Avalonia.Thickness.Parse("10"),
                     [!Border.HorizontalAlignmentProperty] = new Binding("SenderID") { Converter = new MessageConvertor(_vm) },
-                    Child = new TextBlock()
+                    Child = new StackPanel()
                     {
-                        [!TextBlock.TextProperty] = new Binding("Text"),
-                        Foreground = Brushes.White,
-                        TextWrapping = TextWrapping.Wrap
+                        Spacing = 4,
+                        Children =
+                        {
+                            new TextBlock()
+                            {
+                                [!TextBlock.TextProperty] = new Binding("Text"),
+                                Foreground = Brushes.White,
+                                TextWrapping = TextWrapping.Wrap
+                            },
+                            new TextBlock()
+                            {
+                                [!TextBlock.TextProperty] = new Binding("SentAt") {Converter = new TimeConverter()},
+                                FontSize = 10,
+                                Foreground = Brush.Parse("#A0a0a0"),
+                                HorizontalAlignment = HorizontalAlignment.Right,
+                            }
+                        }
+
                     }
                 };
             })
@@ -456,6 +471,20 @@ public class BubbleColorConverter : IValueConverter
     {
         throw new NotImplementedException();
     }
+}
+public class TimeConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is DateTime time)
+        {
+            return shTools.FormatTime(time);
+        }
+        return value;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
 }
 
 
