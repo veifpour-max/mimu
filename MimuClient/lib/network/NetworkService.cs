@@ -11,6 +11,8 @@ public class NetworkService
     private StreamWriter _writer;
     public event Action<Message>? OnMessageReceived;
 
+    public event Action<Guid, MessageStatus>? OnMessageStatusChanged;
+
     private Queue<TaskCompletionSource<string>> _pending = new();
 
     public async Task ConnectAsync(string ip, int port)
@@ -105,9 +107,21 @@ public class NetworkService
                         if (finalMsg != null)
                         {
                             OnMessageReceived?.Invoke(finalMsg);
+                            string ackPayload = $"{finalMsg.Id}|{finalMsg.SenderID}";
+                            var ackPacket = new NetworkPacket(PacketType.MessageDelivered, ackPayload);
+                            await SendPacket(ackPacket);
                             Console.WriteLine($"\n[{shTools.FormatTime(finalMsg.SentAt)}] | {finalMsg.SenderUsername}: {finalMsg.Text}");
                             Console.Write("Вы: ");
                         }
+                    }
+                }
+                if(msg != null && msg.Type == PacketType.MessageDelivered)
+                {
+                    var split = msg.PayLoad.Split("|");
+                    if(split.Length == 2)
+                    {
+                        var msgId = Guid.Parse(split[0]);
+                        OnMessageStatusChanged?.Invoke(msgId, MessageStatus.Delivered);
                     }
                 }
 

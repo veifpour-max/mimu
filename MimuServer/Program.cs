@@ -209,6 +209,24 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 await connetion.SendAsync(finalPack);
             }
+            if(msg != null && msg.Type == PacketType.MessageDelivered)
+            {
+                var splitingResult = msg.PayLoad.Split("|");
+                if(splitingResult.Length == 2)
+                {
+                    var msgId = splitingResult[0];
+                    var originalSenderId = Guid.Parse(splitingResult[1]);
+
+                    await msgRepo.UpdateMessageStatusAsync(msgId, MessageStatus.Delivered);
+                    var final = Deser.SerJson(msg);
+                    ClientConnection target = null;
+                    _clients.TryGetValue(originalSenderId, out target);
+                    if(target != null && target.Client.Connected)
+                    {
+                        await target.SendAsync(final);
+                    }
+                }
+            }
 
         }
         catch

@@ -11,14 +11,15 @@ public enum PacketType
     GetChats,
     GetChatsHistory,
     Ping,
-    Pong
+    Pong,
+    MessageDelivered
 
 }
 
 public class NetworkPacket
 {
     public PacketType Type {get; set;}
-    public string PayLoad {get; set;}
+    public string? PayLoad {get; set;}
 
     public NetworkPacket(PacketType type, string payload)
     {

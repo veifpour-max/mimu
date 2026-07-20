@@ -11,7 +11,8 @@ public enum PacketType
     GetChats,
     GetChatsHistory,
     Ping,
-    Pong
+    Pong,
+    MessageDelivered
 
 }
 

@@ -78,6 +78,22 @@ public class LocalMessagesRepository
         }
     }
 
+    public async Task UpdateMessageStatusAsync(string msgId, MessageStatus status)
+    {
+        var query = "UPDATE LocalMessages SET Status = @status WHERE Id = @id;";
+        using (var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@status", (int)status);
+                command.Parameters.AddWithValue("@id", msgId);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+    }
+    
+
     public async Task<List<User>> GetLocalUsersAsync()
     {
         var users = new List<User>();

@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace LocalMimu.Models;
 public class AppConfig
 {
-    public string ServerIp {get; set;} = "127.0.0.1";
+    public string ServerIp {get; set;} = "146.158.101.114";
     public int ServerPort {get; set;} = 8000;
 
 }

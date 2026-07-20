@@ -17,6 +17,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _net.OnMessageReceived += HandleIncomingMessage;
         _net.OnStateChanged += (state) => StatingConnection(state);
+        _net.OnMessageStatusChanged += HandleStatusChanged;
 
         _ = InitilizeAppAsync();
     }
@@ -57,6 +58,21 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    private async void HandleStatusChanged(Guid msgId, MessageStatus newStatus)
+    {
+        await _localMessages.UpdateMessageStatusAsync(msgId.ToString(), newStatus);
+        Dispatcher.UIThread.Post(() =>
+        {
+            var msg = ChatMessages.FirstOrDefault(m => m.Id == msgId);
+            if (msg != null)
+            {
+                var index = ChatMessages.IndexOf(msg);
+                msg.Status = newStatus;
+                ChatMessages[index] = msg;
+            }
+        });
+    }
+
     private async Task AutoLoginAsync(SessionModel session)
     {
 
@@ -66,7 +82,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var localUsers = await _localMessages.GetLocalUsersAsync();
         ActiveChats.Clear();
-        foreach(var user in localUsers)
+        foreach (var user in localUsers)
         {
             ActiveChats.Add(user);
         }
@@ -75,31 +91,48 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Не удалось подключиться: {ex.Message}";
+            return;
+        }
+        try
+        {
+
             var loginPayload = new LoginPayload(session.Username, session.PasswordHash);
-            var user = await _net.AuthenticateAsync(loginPayload);
-
-            if (user != null)
+            try
             {
-                _myId = user.Id;
-                StatusMessage = $"Добро пожаловать обратно, {user.Username}";
-                _net.StartListening();
-                IsLoginVisible = false;
+                var user = await _net.AuthenticateAsync(loginPayload);
 
-                var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
-                var chats = Deser.DeserJson<List<User>>(result);
-                if (chats != null)
+                if (user != null)
                 {
-                    ActiveChats.Clear();
-                    foreach (var c in chats)
+                    _myId = user.Id;
+                    StatusMessage = $"Добро пожаловать обратно, {user.Username}";
+                    _net.StartListening();
+                    IsLoginVisible = false;
+
+                    var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
+                    var chats = Deser.DeserJson<List<User>>(result);
+                    if (chats != null)
                     {
-                        ActiveChats.Add(c);
+                        ActiveChats.Clear();
+                        foreach (var c in chats)
+                        {
+                            ActiveChats.Add(c);
+                        }
                     }
                 }
+
+                else
+                {
+                    _sessionManager.DeleteSession();
+                    StatusMessage = "Войдите заново. Сессия устарела или потеряна";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _sessionManager.DeleteSession();
-                StatusMessage = "Войдите заново. Сессия устарела или потеряна";
+                StatusMessage = $"Не удалось отправить пакет авторизации: {ex.Message}";
             }
         }
         catch (Exception ex)
@@ -461,5 +494,6 @@ public partial class MainWindowViewModel : ViewModelBase
             StatusMessage = $"Ошибка отправки: {ex.Message}";
         }
     }
+    
 
 }

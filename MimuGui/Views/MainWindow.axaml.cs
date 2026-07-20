@@ -76,6 +76,13 @@ public partial class MainWindow : Window
                                 FontSize = 10,
                                 Foreground = Brush.Parse("#A0a0a0"),
                                 HorizontalAlignment = HorizontalAlignment.Right,
+                            },
+                            new TextBlock()
+                            {
+                                [!TextBlock.TextProperty] = new Binding("Status"),
+                                FontSize = 10,
+                                Foreground = Brush.Parse("#888888"),
+                                VerticalAlignment = VerticalAlignment.Center
                             }
                         }
 
@@ -485,6 +492,21 @@ public class TimeConverter : IValueConverter
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotImplementedException();
+}
+
+public class StatusConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is MessageStatus status)
+        {
+            if (status == MessageStatus.Sent) return "✓";
+            if (status == MessageStatus.Delivered) return "✓✓";
+            if (status == MessageStatus.Read) return "✓✓";
+        }
+        return "";
+    }
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
 }
 
 
