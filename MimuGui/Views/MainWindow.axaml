@@ -7,6 +7,6 @@
         mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
         x:Class="MimuGui.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="LocalMimu"
+        Icon="/Assets/mimu_mainicon.svg"
+        Title="Mimu"
         WindowStartupLocation="CenterScreen"/>
