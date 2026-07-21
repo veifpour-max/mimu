@@ -66,7 +66,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var msg = ChatMessages.FirstOrDefault(m => m.Id == msgId);
             if (msg != null)
             {
-                var index = ChatMessages.IndexOf(msg);
+                int index = ChatMessages.IndexOf(msg);
                 msg.Status = newStatus;
                 ChatMessages[index] = msg;
             }
@@ -116,10 +116,12 @@ public partial class MainWindowViewModel : ViewModelBase
                     var chats = Deser.DeserJson<List<User>>(result);
                     if (chats != null)
                     {
-                        ActiveChats.Clear();
                         foreach (var c in chats)
                         {
-                            ActiveChats.Add(c);
+                            if(!ActiveChats.Any(u => u.Id == c.Id))
+                            {
+                                ActiveChats.Add(c);
+                            }
                         }
                     }
                 }
@@ -225,6 +227,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedUser, value) && value != null)
             {
+                value.UnreadCount = 0;
+                _ = _localMessages.SaveUserAsync(value);
                 _ = LoadChatHistory(value.Id);
                 CancelSearch();
             }
@@ -251,7 +255,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() =>
             {
-                IndicatorText = "Mimu: Переподключение...";
                 IndicatorColor = Brushes.Yellow;
             });
             try
@@ -295,7 +298,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() =>
             {
-                IndicatorText = "Mimu: Подключение...";
                 IndicatorColor = Brushes.Yellow;
             });
         }
@@ -310,32 +312,51 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     private void HandleIncomingMessage(Message msg)
     {
-        Dispatcher.UIThread.Post(async () =>
-      {
-          try
-          {
-              var findingSame = ActiveChats.FirstOrDefault(i => i.Id == msg.SenderID);
-              if (findingSame == null)
-              {
-                  var user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
-                  ActiveChats.Add(user);
-              }
-              if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
-              {
-                  await _localMessages.SaveMessagesAsync(msg);
-                  ChatMessages.Add(msg);
-              }
-              else
-              {
-                  StatusMessage = $"Сообщение от {msg.SenderUsername}";
-              }
-          }
-          catch (Exception ex)
-          {
-              StatusMessage = $"Ошибка отриcовки: {ex.Message}";
-          }
+        Task.Run(async () =>
+        {
+            try
+            {
+                await _localMessages.SaveMessagesAsync(msg);
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.UIThread.Post(() => StatusMessage = $"Ошибка БД: {ex.Message}");
+            }
+        });
 
-      });
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                var user = ActiveChats.FirstOrDefault(i => i.Id == msg.SenderID);
+                if (user == null)
+                {
+                    user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
+                    ActiveChats.Add(user);
+                }
+
+                if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
+                {
+                    ChatMessages.Add(msg);
+                }
+                else
+                {
+                    StatusMessage = $"Новое сообщение от {msg.SenderUsername}";
+                }
+
+                user.LastMessageText = msg.Text;
+
+                if (SelectedUser == null || SelectedUser.Id != msg.SenderID)
+                {
+                    user.UnreadCount++;
+                    _ = _localMessages.SaveUserAsync(user);
+                }
+            }
+            catch (Exception e)
+            {
+                StatusMessage = $"Ошибка отрисовки: {e.Message}";
+            }
+        });
     }
 
     public void FlaggingSearch()
@@ -494,6 +515,6 @@ public partial class MainWindowViewModel : ViewModelBase
             StatusMessage = $"Ошибка отправки: {ex.Message}";
         }
     }
-    
+
 
 }

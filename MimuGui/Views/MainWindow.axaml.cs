@@ -31,10 +31,17 @@ public partial class MainWindow : Window
         BuildUI();
         _vm.ChatMessages.CollectionChanged += (s, e) =>
     {
-        if (_vm.ChatMessages.Count > 0)
-        {
-            _chat.SelectedIndex = _vm.ChatMessages.Count - 1;
-        }
+        _vm.ChatMessages.CollectionChanged += (s, e) =>
+{
+    if (_vm.ChatMessages.Count == 0) return;
+
+    var lastMsg = _vm.ChatMessages[^1];
+
+    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+    {
+        _chat.ScrollIntoView(lastMsg);
+    }, Avalonia.Threading.DispatcherPriority.Loaded);
+};
     };
 
 
@@ -209,78 +216,95 @@ new Grid()
 
                     }
                 },
+// СТРОКА 1: список
+new ListBox()
+{
+    [Grid.RowProperty] = 1,
+    Background = Brush.Parse("#141414"),
+    Styles =
+    {
+        new Style(x => x.OfType<ListBoxItem>().Class(":pointerover"))
+        { Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) } },
+        new Style(x => x.OfType<ListBoxItem>().Class(":selected"))
+        { Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) } }
+    },
+    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ActiveChats)),
+    [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) { Mode = BindingMode.TwoWay },
 
-                // СТРОКА 1: список
-                new ListBox()
+    ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
+    {
+        return new Border()
+        {
+            CornerRadius = Avalonia.CornerRadius.Parse("6"),
+            Background = Brushes.Transparent,
+            Child = new Grid()
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto, *, Auto"),
+                Margin = Avalonia.Thickness.Parse("0,6"),
+                Children =
                 {
-                    [Grid.RowProperty] = 1,
-                    Background = Brush.Parse("#141414"),
-                    Styles =
+                    // Аватарка
+                    new Border()
                     {
-                        new Style(x => x.OfType<ListBoxItem>().Class(":pointerover"))
+                        [Grid.ColumnProperty] = 0,
+                        Width = 40, Height = 40,
+                        CornerRadius = new Avalonia.CornerRadius(20),
+                        Background = Brush.Parse("#424141"),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = Avalonia.Thickness.Parse("0,0,10,0")
+                    },
+                    
+                    // 1: Имя и Последнее сообщение
+                    new StackPanel()
+                    {
+                        [Grid.ColumnProperty] = 1,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Children =
                         {
-                            Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) }
-                        },
-                        new Style(x => x.OfType<ListBoxItem>().Class(":selected"))
-                        {
-                            Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) }
+                            new TextBlock()
+                            {
+                                [!TextBlock.TextProperty] = new Binding("Username"),
+                                Foreground = Brushes.White,
+                                FontWeight = FontWeight.Bold,
+                                FontSize = 14
+                            },
+                            new TextBlock()
+                            {
+                                [!TextBlock.TextProperty] = new Binding("LastMessageText"),
+                                Foreground = Brush.Parse("#888888"),
+                                FontSize = 12,
+                                MaxLines = 1,
+                                TextTrimming = TextTrimming.CharacterEllipsis
+                            }
                         }
                     },
-                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.ActiveChats)),
-                    [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedUser)) { Mode = BindingMode.TwoWay },
 
-                    ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
-                    { 
-                        // левая колонка - чаты
-                        return new Border()
+                    // 2: Кружок с цифрой
+                    new Border()
+                    {
+                        [Grid.ColumnProperty] = 2,
+                        Background = Brush.Parse("#3478F6"),
+                        CornerRadius = new Avalonia.CornerRadius(10),
+                        MinWidth = 20, Height = 20,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        [!Border.IsVisibleProperty] = new Binding("UnreadCount") { Converter = new Avalonia.Data.Converters.FuncValueConverter<int, bool>(count => count > 0) },
+                        Child = new TextBlock()
                         {
-                            CornerRadius = Avalonia.CornerRadius.Parse("6"),
-                            Background = Brushes.Transparent,
-                            Child = new StackPanel()
-                            {
-                                Orientation = Orientation.Horizontal,
-                                Spacing = 10,
-                                Margin = Avalonia.Thickness.Parse("0,6"),
-                                Children =
-                                {
-                                    new Border()
-                                    {
-                                        Width = 40,
-                                        Height = 40,
-                                        CornerRadius = new Avalonia.CornerRadius(20),
-                                        Background = Brush.Parse("#424141"),
-                                        VerticalAlignment = VerticalAlignment.Center
-                                    },
-                                    new StackPanel()
-                                    {
-                                        VerticalAlignment = VerticalAlignment.Center,
-                                        Children=
-                                        {
-                                            new TextBlock()
-                                            {
-                                            [!TextBlock.TextProperty] = new Binding("Username"),
-                                            Foreground = Brushes.White,
-                                            FontWeight = FontWeight.Medium,
-                                            VerticalAlignment = VerticalAlignment.Center
-                                            },
-                                            new TextBlock()
-                                            {
-                                                Text = "Последнее сообщение",
-                                                Foreground = Brush.Parse("#69686869"),
-                                                FontSize = 12
-                                            }
-
-                                        }
-
-                                    },
-
-
-
-                                }
-                            }
-                        };
-                    })
-                },
+                            [!TextBlock.TextProperty] = new Binding("UnreadCount"),
+                            Foreground = Brushes.White,
+                            FontSize = 11,
+                            FontWeight = FontWeight.Bold,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = Avalonia.Thickness.Parse("6,0")
+                        }
+                    }
+                }
+            }
+        };
+    })
+},
                 // поиск
                 new ListBox()
                 {
@@ -409,104 +433,107 @@ new StackPanel()
         }
     }
 
-}
+},
+
             }
         };
     }
-}
 
-public class MessageConvertor : IValueConverter
-{
 
-    private readonly MainWindowViewModel _vm;
-    public MessageConvertor(MainWindowViewModel vm)
+
+    public class MessageConvertor : IValueConverter
     {
-        _vm = vm;
-    }
 
-
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        if (value is Guid senderid)
+        private readonly MainWindowViewModel _vm;
+        public MessageConvertor(MainWindowViewModel vm)
         {
-            if (senderid == _vm.MyId)
-            {
-                return HorizontalAlignment.Right;
-            }
-            else
-            {
-                return HorizontalAlignment.Left;
-            }
-
-
+            _vm = vm;
         }
 
-        return BindingNotification.UnsetValue;
-    }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
-    }
-
-
-}
-
-public class BubbleColorConverter : IValueConverter
-{
-    private readonly MainWindowViewModel _vm;
-
-    public BubbleColorConverter(MainWindowViewModel vm)
-    {
-        _vm = vm;
-    }
-
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        if (value is Guid senderId)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (senderId == _vm.MyId)
+            if (value is Guid senderid)
             {
-                return Brush.Parse("#16395c");
+                if (senderid == _vm.MyId)
+                {
+                    return HorizontalAlignment.Right;
+                }
+                else
+                {
+                    return HorizontalAlignment.Left;
+                }
+
+
+            }
+
+            return BindingNotification.UnsetValue;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+
+
+    }
+
+    public class BubbleColorConverter : IValueConverter
+    {
+        private readonly MainWindowViewModel _vm;
+
+        public BubbleColorConverter(MainWindowViewModel vm)
+        {
+            _vm = vm;
+        }
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is Guid senderId)
+            {
+                if (senderId == _vm.MyId)
+                {
+                    return Brush.Parse("#16395c");
+                }
+                return Brush.Parse("#202020");
             }
             return Brush.Parse("#202020");
         }
-        return Brush.Parse("#202020");
-    }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
-    }
-}
-public class TimeConverter : IValueConverter
-{
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        if (value is DateTime time)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            return shTools.FormatTime(time);
+            throw new NotImplementedException();
         }
-        return value;
     }
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => throw new NotImplementedException();
-}
-
-public class StatusConverter : IValueConverter
-{
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public class TimeConverter : IValueConverter
     {
-        if (value is MessageStatus status)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (status == MessageStatus.Sent) return "✓";
-            if (status == MessageStatus.Delivered) return "✓✓";
-            if (status == MessageStatus.Read) return "✓✓";
+            if (value is DateTime time)
+            {
+                return shTools.FormatTime(time);
+            }
+            return value;
         }
-        return "";
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotImplementedException();
     }
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
+
+    public class StatusConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is MessageStatus status)
+            {
+                if (status == MessageStatus.Sent) return "✓";
+                if (status == MessageStatus.Delivered) return "✓✓";
+                if (status == MessageStatus.Read) return "✓✓";
+            }
+            return "";
+        }
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
+    }
 }
 
 

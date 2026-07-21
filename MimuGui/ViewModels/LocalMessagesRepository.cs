@@ -17,14 +17,24 @@ public class LocalMessagesRepository
     {
         string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         string directoryPath = Path.Combine(appData, "LocalMimu");
+
         if (!Directory.Exists(directoryPath))
         {
-            Directory.CreateDirectory(directoryPath);
+           Directory.CreateDirectory(directoryPath); 
         }
-        _filePath = Path.Combine(directoryPath, "local_history.db");
+        var suffix = "";
+        var args = Environment.GetCommandLineArgs();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--profile" && i + 1 < args.Length)
+            {
+                suffix = "_" + args[i + 1];
+                break;
+            }
+        }
+        _filePath = Path.Combine(directoryPath, $"local_history{suffix}.db");
         _sqlpath = $"Data Source={_filePath}";
     }
-
     public async Task InitializeLocalDatabase()
     {
         using (var connection = new SqliteConnection(_sqlpath))
@@ -47,7 +57,9 @@ public class LocalMessagesRepository
             CREATE TABLE IF NOT EXISTS LocalUsers(
             Id TEXT PRIMARY KEY,
             Username TEXT NOT NULL,
-            Name TEXT NOT NULL
+            Name TEXT NOT NULL,
+            UnreadCount INTEGER DEFAULT 0,
+            LastMessageText TEXT DEFAULT 'Нет сообщений'
             );";
 
             using (var command = new SqliteCommand(createLocalMessagesTable, connection))
@@ -64,7 +76,7 @@ public class LocalMessagesRepository
 
     public async Task SaveUserAsync(User user)
     {
-        var query = "INSERT OR REPLACE INTO LocalUsers (Id, Username, Name) VALUES (@id, @username, @name);";
+        var query = "INSERT OR REPLACE INTO LocalUsers (Id, Username, Name, UnreadCount, LastMessageText) VALUES (@id, @username, @name, @unread, @lastmsg);";
         using (var connection = new SqliteConnection(_sqlpath))
         {
             await connection.OpenAsync();
@@ -73,6 +85,8 @@ public class LocalMessagesRepository
                 command.Parameters.AddWithValue("@id", user.Id.ToString());
                 command.Parameters.AddWithValue("@username", user.Username);
                 command.Parameters.AddWithValue("@name", user.Name);
+                command.Parameters.AddWithValue("@unread", user.UnreadCount);
+                command.Parameters.AddWithValue("@lastmsg", user.LastMessageText ?? "Нет сообщений");
                 await command.ExecuteNonQueryAsync();
             }
         }
@@ -92,12 +106,12 @@ public class LocalMessagesRepository
             }
         }
     }
-    
+
 
     public async Task<List<User>> GetLocalUsersAsync()
     {
         var users = new List<User>();
-        var query = "SELECT Id, Username, Name FROM LocalUsers;";
+        var query = "SELECT Id, Username, Name, UnreadCount, LastMessageText FROM LocalUsers;";
 
         using (var connection = new SqliteConnection(_sqlpath))
         {
@@ -110,7 +124,10 @@ public class LocalMessagesRepository
                     var id = Guid.Parse(reader.GetString(0));
                     var username = reader.GetString(1);
                     var name = reader.GetString(2);
-                    users.Add(new User(name, username) { Id = id });
+                    var unread = reader.GetInt32(3);
+                    var last = reader.GetString(4);
+                    users.Add(new User(name, username) { Id = id, UnreadCount = unread, LastMessageText = last});
+                    
                 }
             }
         }

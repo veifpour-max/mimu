@@ -21,15 +21,15 @@ public static string FormatTime(DateTime time)
         }
         if (time.Date == DateTime.Now.Date)
         {
-            return time.ToString("HH:mm");
+            return time.ToString("HH:mm:ss");
         }
         if (time.Date == DateTime.Now.AddDays(-1).Date)
         {
-            return "Вчера";
+            return time.ToString("dd:MM:yy | HH:mm:ss");
         }
         else
         {
-           return time.ToString("dd.MM.yy");  
+           return time.ToString("dd:MM:yy | HH:mm:ss");  
         }
     }
 }

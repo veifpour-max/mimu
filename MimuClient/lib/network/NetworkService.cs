@@ -109,7 +109,7 @@ public class NetworkService
                             OnMessageReceived?.Invoke(finalMsg);
                             string ackPayload = $"{finalMsg.Id}|{finalMsg.SenderID}";
                             var ackPacket = new NetworkPacket(PacketType.MessageDelivered, ackPayload);
-                            await SendPacket(ackPacket);
+                            _ = SendPacket(ackPacket);
                             Console.WriteLine($"\n[{shTools.FormatTime(finalMsg.SentAt)}] | {finalMsg.SenderUsername}: {finalMsg.Text}");
                             Console.Write("Вы: ");
                         }
@@ -140,9 +140,14 @@ public class NetworkService
             }
             catch (Exception ex)
             {
+                if(ex is IOException || ex is ObjectDisposedException)
+                {
+                    OnStateChanged?.Invoke(ConnectionStates.Disconnected);
+                    break;
+                }
                 Console.WriteLine($"Ошибка! {ex.Message}");
-                OnStateChanged.Invoke(ConnectionStates.Disconnected);
-                break;
+                OnStateChanged?.Invoke(ConnectionStates.Disconnected);
+                continue;
             }
 
         }
