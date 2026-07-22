@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Media;
+using System.Diagnostics;
 
 namespace MimuGui.ViewModels;
 
@@ -60,15 +61,24 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async void HandleStatusChanged(Guid msgId, MessageStatus newStatus)
     {
+        StatusMessage = "Метод вызыван";
+
         await _localMessages.UpdateMessageStatusAsync(msgId.ToString(), newStatus);
         Dispatcher.UIThread.Post(() =>
         {
+            StatusMessage = "Ищем";
             var msg = ChatMessages.FirstOrDefault(m => m.Id == msgId);
             if (msg != null)
             {
+                StatusMessage = "Нашел";
                 int index = ChatMessages.IndexOf(msg);
                 msg.Status = newStatus;
                 ChatMessages[index] = msg;
+                StatusMessage = "Статус обновлен";
+            }
+            else
+            {
+                StatusMessage = "Сообщение не найдено";
             }
         });
     }
@@ -118,7 +128,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     {
                         foreach (var c in chats)
                         {
-                            if(!ActiveChats.Any(u => u.Id == c.Id))
+                            if (!ActiveChats.Any(u => u.Id == c.Id))
                             {
                                 ActiveChats.Add(c);
                             }

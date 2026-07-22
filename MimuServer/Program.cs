@@ -215,12 +215,12 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 if(splitingResult.Length == 2)
                 {
                     var msgId = splitingResult[0];
-                    var originalSenderId = Guid.Parse(splitingResult[1]);
+                    var originalReceiverId = Guid.Parse(splitingResult[1]);
 
                     await msgRepo.UpdateMessageStatusAsync(msgId, MessageStatus.Delivered);
                     var final = Deser.SerJson(msg);
                     ClientConnection target = null;
-                    _clients.TryGetValue(originalSenderId, out target);
+                    _clients.TryGetValue(originalReceiverId, out target);
                     if(target != null && target.Client.Connected)
                     {
                         await target.SendAsync(final);

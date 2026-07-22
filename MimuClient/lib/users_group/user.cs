@@ -10,7 +10,6 @@ public class User : INotifyPropertyChanged
     readonly public DateTime createdAt;
     public bool IsOnline { get; set; }
     public UserStatus Status { get; set; }
-
     public event PropertyChangedEventHandler? PropertyChanged;
     private string? _LastMessageText { get; set; } = "Нет сообщений";
     private int _UnreadCount { get; set; } = 0;

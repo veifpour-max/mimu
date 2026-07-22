@@ -31,17 +31,14 @@ public partial class MainWindow : Window
         BuildUI();
         _vm.ChatMessages.CollectionChanged += (s, e) =>
     {
-        _vm.ChatMessages.CollectionChanged += (s, e) =>
-{
-    if (_vm.ChatMessages.Count == 0) return;
+        if (_vm.ChatMessages.Count == 0) return;
 
-    var lastMsg = _vm.ChatMessages[^1];
+        var lastMsg = _vm.ChatMessages[^1];
 
-    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-    {
-        _chat.ScrollIntoView(lastMsg);
-    }, Avalonia.Threading.DispatcherPriority.Loaded);
-};
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            _chat.ScrollIntoView(lastMsg);
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
     };
 
 
@@ -86,7 +83,7 @@ public partial class MainWindow : Window
                             },
                             new TextBlock()
                             {
-                                [!TextBlock.TextProperty] = new Binding("Status"),
+                                [!TextBlock.TextProperty] = new Binding("Status") {Converter = new StatusConverter()},
                                 FontSize = 10,
                                 Foreground = Brush.Parse("#888888"),
                                 VerticalAlignment = VerticalAlignment.Center
