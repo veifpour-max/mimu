@@ -54,7 +54,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
     }
     var writer = new StreamWriter(sslStream) { AutoFlush = true };
     var reader = new StreamReader(sslStream);
-    var connetion = new ClientConnection {Writer = writer, Client = client};
+    var connetion = new ClientConnection { Writer = writer, Client = client };
     Guid assignedId = Guid.Empty;
     while (true)
     {
@@ -209,10 +209,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 await connetion.SendAsync(finalPack);
             }
-            if(msg != null && msg.Type == PacketType.MessageDelivered)
+            if (msg != null && msg.Type == PacketType.MessageDelivered)
             {
                 var splitingResult = msg.PayLoad.Split("|");
-                if(splitingResult.Length == 2)
+                if (splitingResult.Length == 2)
                 {
                     var msgId = splitingResult[0];
                     var originalReceiverId = Guid.Parse(splitingResult[1]);
@@ -221,20 +221,19 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var final = Deser.SerJson(msg);
                     ClientConnection target = null;
                     _clients.TryGetValue(originalReceiverId, out target);
-                    if(target != null && target.Client.Connected)
+                    if (target != null && target.Client.Connected)
                     {
                         await target.SendAsync(final);
                     }
                 }
             }
-            if(msg != null && msg.Type == PacketType.GetPublicKey)
+            if (msg != null && msg.Type == PacketType.GetPublicKey)
             {
                 var id = Guid.Parse(msg.PayLoad);
                 var key = await repo.GetPublicKeyAsync(id);
 
                 string answerToSend = string.Join("|", id, key);
-                string final = Deser.SerJson(answerToSend);
-                var send = new NetworkPacket(PacketType.ServerResponse, final);
+                var send = new NetworkPacket(PacketType.ServerResponse, answerToSend);
                 var serSend = Deser.SerJson(send);
                 await connetion.SendAsync(serSend);
             }

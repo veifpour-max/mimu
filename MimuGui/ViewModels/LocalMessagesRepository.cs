@@ -51,7 +51,7 @@ public class LocalMessagesRepository
                 SenderId TEXT NOT NULL,
                 ReceiverId TEXT NOT NULL,
                 SentAt TEXT NOT NULL,
-                Status INTEGER NOT NULL,
+                Status INTEGER NOT NULL
             );";
             var createLocalUsersTable = @"
             CREATE TABLE IF NOT EXISTS LocalUsers(

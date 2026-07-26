@@ -245,14 +245,13 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedUser, value) && value != null)
             {
-                if (string.IsNullOrEmpty(value.PublicKey))
-                {
-                    var packet = new NetworkPacket(PacketType.GetPublicKey, value.Id.ToString());
-                    _ = _net.SendPacket(packet);
-                }
                 value.UnreadCount = 0;
                 _ = _localMessages.SaveUserAsync(value);
                 _ = LoadChatHistory(value.Id);
+                if (string.IsNullOrEmpty(value.PublicKey))
+                {
+                    _ = PrepareChatAsync(value);
+                }
                 CancelSearch();
             }
         }
@@ -356,6 +355,24 @@ public partial class MainWindowViewModel : ViewModelBase
                 {
                     user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
                     ActiveChats.Add(user);
+                }
+                if (_crypto != null && !string.IsNullOrEmpty(user.PublicKey))
+                {
+                    try
+                    {
+                        var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.Text);
+
+                        if (encryptedPayload != null)
+                        {
+                            byte[] sharedSecret = _crypto.GetSharedSecret(user.PublicKey);
+                            string decryptedText = _crypto.Decrypt(encryptedPayload, sharedSecret);
+                            msg.Text = decryptedText;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        msg.Text = "Ошибка дешифровки сообщения!";
+                    }
                 }
 
                 if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
@@ -533,6 +550,18 @@ public partial class MainWindowViewModel : ViewModelBase
                 ActiveChats.Add(SelectedUser);
             }
             var msg = new Message(NewMessageText, _myId, SelectedUser.Id, MessageType.Text);
+            if (_crypto != null && !string.IsNullOrEmpty(SelectedUser.PublicKey))
+            {
+                byte[] sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+                EncryptedPayload ec = _crypto.Encrypt(NewMessageText, sharedSecret);
+                msg.Text = Deser.SerJson(ec);
+            }
+            else
+            {
+                if (_crypto == null) StatusMessage = "Твой приватный ключ не загружен!";
+                else StatusMessage = "У собеседника нет публичного ключа!";
+                return;
+            }
             await _localMessages.SaveMessagesAsync(msg);
             string sering = Deser.SerJson(msg);
             var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);
@@ -548,6 +577,35 @@ public partial class MainWindowViewModel : ViewModelBase
             StatusMessage = $"Ошибка отправки: {ex.Message}";
         }
     }
+    private async Task PrepareChatAsync(User user)
+    {
+        if (string.IsNullOrEmpty(user.PublicKey))
+        {
+            await FetchPublicKeyAsync(user);
+        }
 
+        await LoadChatHistory(user.Id);
+    }
+    private async Task FetchPublicKeyAsync(User user)
+    {
+        try
+        {
+            var packet = new NetworkPacket(PacketType.GetPublicKey, user.Id.ToString());
+            var result = await _net.SendAndWaitAsync(packet);
+            var parts = result?.Split('|');
+
+            if (parts != null && parts.Length == 2)
+            {
+                user.PublicKey = parts[1];
+                await _localMessages.SaveUserAsync(user);
+
+                StatusMessage = "Ключ собеседника получен.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Ошибка загрузки ключа: {ex.Message}";
+        }
+    }
 
 }

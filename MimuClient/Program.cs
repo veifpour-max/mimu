@@ -68,187 +68,204 @@ while (!IsRegistred)
             var password = Console.ReadLine();
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name) && shTools.check(password))
             {
-                using var crypto = new CryptoEngine();
-                string myPublicKey = crypto.GetMyPublicKeyBase64();
-                byte[] myPrivateKey = crypto.ExportMyPrivateKey();
+                try
+                {
+                    using var crypto = new CryptoEngine();
+                    string myPublicKey = crypto.GetMyPublicKeyBase64();
+                    byte[] myPrivateKey = crypto.ExportMyPrivateKey();
+
+                    var sm = new SessionManager();
+                    try
+                    {
+                      sm.SavePrivateKey(myPrivateKey);  
+                    }
+                    catch(Exception ex)
+                    {
+                        Console.WriteLine($"{ex.Message}");
+                    }
+                    
+                    var registerUser = new RegisterPayload(name, username, password, myPublicKey);
+                    var success = await net.RegisterAsync(registerUser);
+                    if (success)
+                    {
+                        myFakeId = registerUser.id;
+                        IsRegistred = true;
+                    }
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"{ex.Message}");
+                }
+
+                }
                 
-                var sm = new SessionManager();
-                sm.SavePrivateKey(myPrivateKey);
-
-                var registerUser = new RegisterPayload(name, username, password, myPublicKey);
-                var success = await net.RegisterAsync(registerUser);
-                if (success)
-                {
-                    myFakeId = registerUser.id;
-                    IsRegistred = true;
-                }
-            }
         }
-    }
-    else
-    {
-        Console.WriteLine("Такой пользователь уже существует!");
-    }
-
-    if (choice == "1")
-    {
-        Console.Write("Введи свой username: ");
-        var username = Console.ReadLine();
-        Console.Write("Введи свой пароль: ");
-        var password = Console.ReadLine();
-        if (username != null)
-        {
-            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+            else
             {
-                var loginToServer = new LoginPayload(username, password);
-                var serverAnswer = await net.AuthenticateAsync(loginToServer);
-                if (serverAnswer != null)
-                {
-                    myFakeId = serverAnswer.Id;
-                    IsRegistred = true;
-                }
-                else
-                {
-                    Console.WriteLine("Ошибка входа. Убедитесь что все введено верно");
-                }
+                Console.WriteLine("Такой пользователь уже существует!");
             }
 
+            if (choice == "1")
+            {
+                Console.Write("Введи свой username: ");
+                var username = Console.ReadLine();
+                Console.Write("Введи свой пароль: ");
+                var password = Console.ReadLine();
+                if (username != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+                    {
+                        var loginToServer = new LoginPayload(username, password);
+                        var serverAnswer = await net.AuthenticateAsync(loginToServer);
+                        if (serverAnswer != null)
+                        {
+                            myFakeId = serverAnswer.Id;
+                            IsRegistred = true;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Ошибка входа. Убедитесь что все введено верно");
+                        }
+                    }
+
+                }
+            }
         }
-    }
 }
 
 
 
-net.StartListening();
+        net.StartListening();
 
-while (true)
-{
-    try
-    {
-
-        Console.WriteLine("=================================");
-        Console.WriteLine("=== LocalMimu Protocol v0.1 ===");
-        Console.WriteLine("=================================");
-        Console.WriteLine("Выберите действие:");
-        Console.WriteLine("1. Поиск пользователей по username | 2. Написать сообщение по username | 3. Чаты | 0. Выход");
-        Console.Write("Выбор: ");
-
-        var choice = Console.ReadLine();
-        if (choice == "0") break;
-
-        if (choice == "1")
+        while (true)
         {
-            Console.Write("Введите username контакта: ");
-            var usernameOfContact = Console.ReadLine();
-            if (usernameOfContact == null)
+            try
             {
-                Console.WriteLine("Не найдено.");
-                await Task.Delay(1500);
-                continue;
-            }
 
-            var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
-            var answer = await net.SendAndWaitAsync(searchingUser);
-            Console.WriteLine("Запрос отправлен");
-            var deser = Deser.DeserJson<User>(answer);
-            if (deser != null)
-            {
-                Console.WriteLine($"[ПОИСК] Найден: {deser.Name} | @{deser.Username}");
-            }
-            else
-            {
-                Console.WriteLine("Никого не найдено");
-            }
+                Console.WriteLine("=================================");
+                Console.WriteLine("=== LocalMimu Protocol v0.1 ===");
+                Console.WriteLine("=================================");
+                Console.WriteLine("Выберите действие:");
+                Console.WriteLine("1. Поиск пользователей по username | 2. Написать сообщение по username | 3. Чаты | 0. Выход");
+                Console.Write("Выбор: ");
 
+                var choice = Console.ReadLine();
+                if (choice == "0") break;
 
-        }
-        if (choice == "2")
-        {
-            Console.Write("Введи Username получателя: ");
-            var input = Console.ReadLine();
-            if (!string.IsNullOrWhiteSpace(input))
-            {
-                var npMsg = new NetworkPacket(PacketType.SearchUser, input);
-                var answer = await net.SendAndWaitAsync(npMsg);
-                var targetUser = Deser.DeserJson<User>(answer);
-                if (targetUser != null)
+                if (choice == "1")
                 {
-                    string splitedIds = string.Join("|", myFakeId, targetUser.Id);
-                    NetworkPacket packetToSend = new NetworkPacket(PacketType.GetChatsHistory, splitedIds);
-
-                    var serverAnswer = await net.SendAndWaitAsync(packetToSend);
-                    var ResponseAbtUser = Deser.DeserJson<List<Message>>(serverAnswer);
-
-                    Console.Clear();
-
-                    Console.WriteLine($"=== Чат с @{targetUser.Username} ===");
-                    Console.WriteLine("Введи 'exit' для выхода");
-
-                    if (ResponseAbtUser != null)
+                    Console.Write("Введите username контакта: ");
+                    var usernameOfContact = Console.ReadLine();
+                    if (usernameOfContact == null)
                     {
-                        foreach (var c in ResponseAbtUser)
+                        Console.WriteLine("Не найдено.");
+                        await Task.Delay(1500);
+                        continue;
+                    }
+
+                    var searchingUser = new NetworkPacket(PacketType.SearchUser, usernameOfContact);
+                    var answer = await net.SendAndWaitAsync(searchingUser);
+                    Console.WriteLine("Запрос отправлен");
+                    var deser = Deser.DeserJson<User>(answer);
+                    if (deser != null)
+                    {
+                        Console.WriteLine($"[ПОИСК] Найден: {deser.Name} | @{deser.Username}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Никого не найдено");
+                    }
+
+
+                }
+                if (choice == "2")
+                {
+                    Console.Write("Введи Username получателя: ");
+                    var input = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(input))
+                    {
+                        var npMsg = new NetworkPacket(PacketType.SearchUser, input);
+                        var answer = await net.SendAndWaitAsync(npMsg);
+                        var targetUser = Deser.DeserJson<User>(answer);
+                        if (targetUser != null)
                         {
-                            string senderName = c.SenderID == myFakeId ? "Вы" : targetUser.Username;
-                            Console.WriteLine($"{shTools.FormatTime(c.SentAt)} | @{senderName} : {c.Text}");
+                            string splitedIds = string.Join("|", myFakeId, targetUser.Id);
+                            NetworkPacket packetToSend = new NetworkPacket(PacketType.GetChatsHistory, splitedIds);
+
+                            var serverAnswer = await net.SendAndWaitAsync(packetToSend);
+                            var ResponseAbtUser = Deser.DeserJson<List<Message>>(serverAnswer);
+
+                            Console.Clear();
+
+                            Console.WriteLine($"=== Чат с @{targetUser.Username} ===");
+                            Console.WriteLine("Введи 'exit' для выхода");
+
+                            if (ResponseAbtUser != null)
+                            {
+                                foreach (var c in ResponseAbtUser)
+                                {
+                                    string senderName = c.SenderID == myFakeId ? "Вы" : targetUser.Username;
+                                    Console.WriteLine($"{shTools.FormatTime(c.SentAt)} | @{senderName} : {c.Text}");
+                                }
+                            }
+                            while (true)
+                            {
+                                Console.Write("Вы: ");
+                                var message = Console.ReadLine();
+                                if (message != null)
+                                {
+                                    var mesg = new Message(message, myFakeId, targetUser.Id, MessageType.Text);
+                                    if (string.IsNullOrWhiteSpace(mesg.Text))
+                                    {
+                                        continue;
+                                    }
+                                    string json = Deser.SerJson(mesg);
+                                    var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
+                                    if (message == "exit")
+                                    {
+                                        break;
+                                    }
+                                    await net.SendPacket(msgPacket);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Пользователь не существует");
+                        }
+
+
+                    }
+                }
+
+                if (choice == "3")
+                {
+                    var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
+
+                    var answerFromServer = await net.SendAndWaitAsync(newPacket);
+                    var contactId = Deser.DeserJson<List<User>>(answerFromServer);
+
+                    if (contactId != null && contactId.Count > 0)
+                    {
+                        Console.WriteLine("Ваши чаты");
+
+                        foreach (var id in contactId)
+                        {
+                            Console.WriteLine($"Чат с пользователем @{id.Username} | {id.Name}");
                         }
                     }
-                    while (true)
+                    else
                     {
-                        Console.Write("Вы: ");
-                        var message = Console.ReadLine();
-                        if (message != null)
-                        {
-                            var mesg = new Message(message, myFakeId, targetUser.Id, MessageType.Text);
-                            if (string.IsNullOrWhiteSpace(mesg.Text))
-                            {
-                                continue;
-                            }
-                            string json = Deser.SerJson(mesg);
-                            var msgPacket = new NetworkPacket(PacketType.ChatMessage, json);
-                            if (message == "exit")
-                            {
-                                break;
-                            }
-                            await net.SendPacket(msgPacket);
-                        }
+                        Console.WriteLine("Активных переписок нет");
                     }
-                }
-                else
-                {
-                    Console.WriteLine("Пользователь не существует");
+
                 }
 
-
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка: {ex.Message}");
+                await Task.Delay(250);
             }
         }
 
-        if (choice == "3")
-        {
-            var newPacket = new NetworkPacket(PacketType.GetChats, myFakeId.ToString());
-
-            var answerFromServer = await net.SendAndWaitAsync(newPacket);
-            var contactId = Deser.DeserJson<List<User>>(answerFromServer);
-
-            if (contactId != null && contactId.Count > 0)
-            {
-                Console.WriteLine("Ваши чаты");
-
-                foreach (var id in contactId)
-                {
-                    Console.WriteLine($"Чат с пользователем @{id.Username} | {id.Name}");
-                }
-            }
-            else
-            {
-                Console.WriteLine("Активных переписок нет");
-            }
-
-        }
-
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Ошибка: {ex.Message}");
-        await Task.Delay(250);
-    }
-}
