@@ -25,7 +25,8 @@ public static class DbInitializer
                 Username TEXT UNIQUE NOT NULL,
                 Name TEXT NOT NULL,
                 PasswordHash TEXT NOT NULL,
-                Salt TEXT NOT NULL DEFAULT ''
+                Salt TEXT NOT NULL DEFAULT '',
+                PublicKey TEXT NOT NULL DEFAULT ''
             );";
 
             var createMessagesTable = @"
@@ -38,7 +39,6 @@ public static class DbInitializer
                 Status INTEGER NOT NULL,
                 FOREIGN KEY(SenderId) REFERENCES Users(Id),
                 FOREIGN KEY(ReceiverId) REFERENCES Users(Id)
-
             );";
 
             using (var command = new SqliteCommand(createUsersTable, connection))

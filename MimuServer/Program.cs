@@ -227,6 +227,17 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     }
                 }
             }
+            if(msg != null && msg.Type == PacketType.GetPublicKey)
+            {
+                var id = Guid.Parse(msg.PayLoad);
+                var key = await repo.GetPublicKeyAsync(id);
+
+                string answerToSend = string.Join("|", id, key);
+                string final = Deser.SerJson(answerToSend);
+                var send = new NetworkPacket(PacketType.ServerResponse, final);
+                var serSend = Deser.SerJson(send);
+                await connetion.SendAsync(serSend);
+            }
 
         }
         catch

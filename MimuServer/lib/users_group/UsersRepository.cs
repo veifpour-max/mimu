@@ -3,6 +3,7 @@ using System.Data.SqlTypes;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using LocalMimu.Models;
@@ -28,7 +29,7 @@ public class UsersRepository
         using(var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
-            using(var command = new SqliteCommand(queryToServer, connection))
+            using (var command = new SqliteCommand(queryToServer, connection))
             {
                 command.Parameters.AddWithValue(@query, $"%{query}%");
 
@@ -57,7 +58,7 @@ public class UsersRepository
         using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
-            var query = "INSERT INTO Users (Id, Username, Name, PasswordHash, Salt) VALUES (@id, @username, @name, @passwordHash, @salt);";
+            var query = "INSERT INTO Users (Id, Username, Name, PasswordHash, Salt, PublicKey) VALUES (@id, @username, @name, @passwordHash, @salt, @publickey);";
             using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@id", user.Id.ToString());
@@ -70,6 +71,28 @@ public class UsersRepository
             }
 
         }
+    }
+    public async Task<string> GetPublicKeyAsync(Guid id)
+    {
+        var reqKey = "";
+        using(var connection = new SqliteConnection(_sqlPath))
+        {
+            await connection.OpenAsync();
+            var query = "SELECT PublicKey FROM Users WHERE Id = @id";
+            using(var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@id", id.ToString());
+                using(var reader = await command.ExecuteReaderAsync())
+                {
+                    while(await reader.ReadAsync())
+                    {
+                        var key = reader.GetString(0);
+                        reqKey = key;
+                    }
+                }
+            }
+        }
+        return reqKey;
     }
 
     public async Task<User?> FindByUsername(string username)

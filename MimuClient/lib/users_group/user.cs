@@ -13,6 +13,7 @@ public class User : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     private string? _LastMessageText { get; set; } = "Нет сообщений";
     private int _UnreadCount { get; set; } = 0;
+    public string PublicKey {get; set;} = "";
 
     public string? LastMessageText
     {

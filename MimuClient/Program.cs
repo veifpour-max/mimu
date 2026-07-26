@@ -68,7 +68,14 @@ while (!IsRegistred)
             var password = Console.ReadLine();
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(name) && shTools.check(password))
             {
-                var registerUser = new RegisterPayload(name, username, password);
+                using var crypto = new CryptoEngine();
+                string myPublicKey = crypto.GetMyPublicKeyBase64();
+                byte[] myPrivateKey = crypto.ExportMyPrivateKey();
+                
+                var sm = new SessionManager();
+                sm.SavePrivateKey(myPrivateKey);
+
+                var registerUser = new RegisterPayload(name, username, password, myPublicKey);
                 var success = await net.RegisterAsync(registerUser);
                 if (success)
                 {

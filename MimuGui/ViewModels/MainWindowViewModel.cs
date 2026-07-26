@@ -14,6 +14,8 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly SessionManager _sessionManager = new SessionManager();
     private readonly LocalMessagesRepository _localMessages = new();
+    private CryptoEngine? _crypto;
+
     public MainWindowViewModel()
     {
         _net.OnMessageReceived += HandleIncomingMessage;
@@ -61,20 +63,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async void HandleStatusChanged(Guid msgId, MessageStatus newStatus)
     {
-        StatusMessage = "Метод вызыван";
 
         await _localMessages.UpdateMessageStatusAsync(msgId.ToString(), newStatus);
         Dispatcher.UIThread.Post(() =>
         {
-            StatusMessage = "Ищем";
             var msg = ChatMessages.FirstOrDefault(m => m.Id == msgId);
             if (msg != null)
             {
-                StatusMessage = "Нашел";
                 int index = ChatMessages.IndexOf(msg);
                 msg.Status = newStatus;
                 ChatMessages[index] = msg;
-                StatusMessage = "Статус обновлен";
             }
             else
             {
@@ -117,6 +115,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 if (user != null)
                 {
+                    var privateKey = _sessionManager.LoadPrivateKey();
+                    if (privateKey != null)
+                    {
+                        _crypto = new CryptoEngine();
+                        _crypto.LoadMyPrivateKey(privateKey);
+                    }
+                    else
+                    {
+                        StatusMessage = $"Критическая ошибка! Приватный ключ не найден. Чат невозможен";
+                    }
                     _myId = user.Id;
                     StatusMessage = $"Добро пожаловать обратно, {user.Username}";
                     _net.StartListening();
@@ -237,6 +245,11 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedUser, value) && value != null)
             {
+                if (string.IsNullOrEmpty(value.PublicKey))
+                {
+                    var packet = new NetworkPacket(PacketType.GetPublicKey, value.Id.ToString());
+                    _ = _net.SendPacket(packet);
+                }
                 value.UnreadCount = 0;
                 _ = _localMessages.SaveUserAsync(value);
                 _ = LoadChatHistory(value.Id);
@@ -469,6 +482,16 @@ public partial class MainWindowViewModel : ViewModelBase
             if (user != null)
             {
                 _myId = user.Id;
+                var privateKey = _sessionManager.LoadPrivateKey();
+                if (privateKey != null)
+                {
+                    _crypto = new CryptoEngine();
+                    _crypto.LoadMyPrivateKey(privateKey);
+                }
+                else
+                {
+                    StatusMessage = $"Критическая ошибка! Приватный ключ не найден. Чат невозможен";
+                }
                 StatusMessage = $"Добро пожаловать, {user.Username}";
                 _sessionManager.SaveSession(user.Username, Password, user.Id, "127.0.0.1");
                 _net.StartListening();
