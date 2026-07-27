@@ -332,7 +332,7 @@ public partial class MainWindowViewModel : ViewModelBase
             });
         }
     }
-    private void HandleIncomingMessage(Message msg)
+    private void OLDHandleIncomingMessage(Message msg)
     {
         Task.Run(async () =>
         {
@@ -406,6 +406,46 @@ public partial class MainWindowViewModel : ViewModelBase
                 StatusMessage = $"Ошибка отрисовки: {e.Message}";
             }
         });
+    }
+    private async Task ProcessIncomingMessageAsync(Message msg)
+    {
+        var user = ActiveChats.FirstOrDefault(i => i.Id == msg.SenderID);
+        if (user == null)
+        {
+            user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
+            ActiveChats.Add(user);
+        }
+
+        if (string.IsNullOrEmpty(user.PublicKey))
+            await FetchPublicKeyAsync(user);
+
+        if (_crypto != null && !string.IsNullOrEmpty(user.PublicKey))
+        {
+            var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.Text);
+            if (encryptedPayload != null)
+            {
+                byte[] sharedSecret = _crypto.GetSharedSecret(user.PublicKey);
+                string decryptedText = _crypto.Decrypt(encryptedPayload, sharedSecret);
+                msg.Text = decryptedText;
+            }
+        }
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
+                ChatMessages.Add(msg);
+            else
+                StatusMessage = $"Новое сообщение от {msg.SenderUsername}";
+            user.LastMessageText = msg.Text;
+            if (SelectedUser == null || SelectedUser.Id != msg.SenderID)
+            {
+                user.UnreadCount++;
+                _ = _localMessages.SaveUserAsync(user);
+            }
+        });
+    }
+    private void HandleIncomingMessage(Message msg)
+    {
+        _ = ProcessIncomingMessageAsync(msg);
     }
 
     public void FlaggingSearch()
@@ -559,6 +599,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 ActiveChats.Add(SelectedUser);
             }
             var msg = new Message(NewMessageText, _myId, SelectedUser.Id, MessageType.Text);
+            var originalText = NewMessageText;
             if (_crypto != null && !string.IsNullOrEmpty(SelectedUser.PublicKey))
             {
                 byte[] sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
@@ -575,9 +616,10 @@ public partial class MainWindowViewModel : ViewModelBase
             var sering = Deser.SerJson(msg);
             var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);
             await _net.SendPacket(newPacket);
+            var displayMsg = new Message(originalText, _myId, SelectedUser.Id, MessageType.Text);
             Dispatcher.UIThread.Post(() =>
             {
-                ChatMessages.Add(msg);
+                ChatMessages.Add(displayMsg);
                 NewMessageText = "";
             });
         }

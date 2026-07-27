@@ -6,6 +6,7 @@ namespace LocalMimu.Models;
 
 public class NetworkService
 {
+    private object _lock;
     private TcpClient _client;
     private StreamReader _reader;
     private StreamWriter _writer;
@@ -46,7 +47,7 @@ public class NetworkService
     public async Task<string> SendAndWaitAsync(NetworkPacket packet)
     {
         var tcs = new TaskCompletionSource<string>();
-        _pending.Enqueue(tcs);
+        lock (_lock) { _pending.Enqueue(tcs); }
         await SendPacket(packet);
         return await tcs.Task;
     }
