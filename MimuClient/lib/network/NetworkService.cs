@@ -17,6 +17,7 @@ public class NetworkService
 
     public async Task ConnectAsync(string ip, int port)
     {
+        DisposeOldResources();
         OnStateChanged?.Invoke(ConnectionStates.Connecting);
         _client = new TcpClient();
         await _client.ConnectAsync(ip, port);
@@ -26,6 +27,20 @@ public class NetworkService
         OnStateChanged?.Invoke(ConnectionStates.Connected);
         _reader = new StreamReader(sslStream);
         _writer = new StreamWriter(sslStream) { AutoFlush = true };
+    }
+    private void DisposeOldResources()
+    {
+        while (_pending.TryDequeue(out var tcs))
+            tcs.TrySetCanceled();
+
+        _writer?.Dispose();
+        _reader?.Dispose();
+        _client?.Close();
+        _client?.Dispose();
+
+        _writer = null;
+        _reader = null;
+        _client = null;
     }
 
     public async Task<string> SendAndWaitAsync(NetworkPacket packet)
@@ -115,10 +130,10 @@ public class NetworkService
                         }
                     }
                 }
-                if(msg != null && msg.Type == PacketType.MessageDelivered)
+                if (msg != null && msg.Type == PacketType.MessageDelivered)
                 {
                     var split = msg.PayLoad.Split("|");
-                    if(split.Length == 2)
+                    if (split.Length == 2)
                     {
                         var msgId = Guid.Parse(split[0]);
                         OnMessageStatusChanged?.Invoke(msgId, MessageStatus.Delivered);
@@ -140,14 +155,15 @@ public class NetworkService
             }
             catch (Exception ex)
             {
-                if(ex is IOException || ex is ObjectDisposedException)
+                if (ex is IOException || ex is ObjectDisposedException)
                 {
                     OnStateChanged?.Invoke(ConnectionStates.Disconnected);
                     break;
                 }
                 Console.WriteLine($"Ошибка! {ex.Message}");
                 OnStateChanged?.Invoke(ConnectionStates.Disconnected);
-                continue;
+                DisposeOldResources();
+                break;
             }
 
         }
