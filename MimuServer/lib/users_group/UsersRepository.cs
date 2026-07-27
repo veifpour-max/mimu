@@ -26,23 +26,23 @@ public class UsersRepository
 
         var usersList = new List<User>();
 
-        using(var connection = new SqliteConnection(_sqlPath))
+        using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
             using (var command = new SqliteCommand(queryToServer, connection))
             {
                 command.Parameters.AddWithValue(@query, $"%{query}%");
 
-                using(var reader = await command.ExecuteReaderAsync())
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    while(await reader.ReadAsync())
+                    while (await reader.ReadAsync())
                     {
                         var id = Guid.Parse(reader.GetString(0));
                         var uname = reader.GetString(1);
                         var name = reader.GetString(2);
 
-                        var adding = new User(name, uname) {Id = id};
-                        
+                        var adding = new User(name, uname) { Id = id };
+
                         usersList.Add(adding);
                     }
                 }
@@ -53,7 +53,7 @@ public class UsersRepository
 
     }
 
-    public async Task AddUser(User user, string passwordHash, string salt)
+    public async Task AddUser(User user, string passwordHash, string salt, string publicKey)
     {
         using (var connection = new SqliteConnection(_sqlPath))
         {
@@ -66,6 +66,7 @@ public class UsersRepository
                 command.Parameters.AddWithValue("@name", user.Name);
                 command.Parameters.AddWithValue("@passwordHash", passwordHash);
                 command.Parameters.AddWithValue("@salt", salt);
+                command.Parameters.AddWithValue("@publickey", publicKey);
 
                 await command.ExecuteNonQueryAsync();
             }
@@ -75,16 +76,16 @@ public class UsersRepository
     public async Task<string> GetPublicKeyAsync(Guid id)
     {
         var reqKey = "";
-        using(var connection = new SqliteConnection(_sqlPath))
+        using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
             var query = "SELECT PublicKey FROM Users WHERE Id = @id";
-            using(var command = new SqliteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@id", id.ToString());
-                using(var reader = await command.ExecuteReaderAsync())
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    while(await reader.ReadAsync())
+                    while (await reader.ReadAsync())
                     {
                         var key = reader.GetString(0);
                         reqKey = key;
@@ -127,15 +128,15 @@ public class UsersRepository
 
         var query = "SELECT Id, Username, Name, PasswordHash, Salt FROM Users WHERE Username = @username LIMIT 1";
 
-        using(var connection = new SqliteConnection(_sqlPath))
+        using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
-            using(var command = new SqliteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@username", username);
-                using(var reader = await command.ExecuteReaderAsync())
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    if(await reader.ReadAsync())
+                    if (await reader.ReadAsync())
                     {
                         var id = Guid.Parse(reader.GetString(0));
                         var uname = reader.GetString(1);
@@ -145,9 +146,9 @@ public class UsersRepository
 
                         var expectedHash = Crypto.SHA256Encode(clientPassword + salt);
 
-                        if(expectedHash == passHash)
+                        if (expectedHash == passHash)
                         {
-                            var user = new User(name, uname) {Id = id};
+                            var user = new User(name, uname) { Id = id };
                             user.Status = UserStatus.Online;
                             return user;
                         }
@@ -175,7 +176,7 @@ public class UsersRepository
                         var uname = reader.GetString(1);
                         var name = reader.GetString(2);
 
-                        return new User(name, uname) {Id = idFromDb};
+                        return new User(name, uname) { Id = idFromDb };
                     }
 
                 }
@@ -184,7 +185,7 @@ public class UsersRepository
         return null;
     }
 
-    public async Task<bool> Register(Guid id, string name, string username, string password)
+    public async Task<bool> Register(Guid id, string name, string username, string password, string publicKey)
     {
         var existingUser = await FindByUsername(username);
         var salt = Guid.NewGuid().ToString("N");
@@ -195,8 +196,8 @@ public class UsersRepository
         }
         else
         {
-            User regUser = new User(name, username) {Id = id};
-            await AddUser(regUser, hash, salt);
+            User regUser = new User(name, username) { Id = id };
+            await AddUser(regUser, hash, salt, publicKey);
             return true;
         }
     }

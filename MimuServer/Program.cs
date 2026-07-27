@@ -93,7 +93,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             if (authPacket != null && authPacket.Type == PacketType.Register)
             {
                 var data = Deser.DeserJson<RegisterPayload>(authPacket.PayLoad);
-                bool success = await repo.Register(data.id, data.Name, data.Username, data.Password);
+                bool success = await repo.Register(data.id, data.Name, data.Username, data.Password, data.PublicKey);
 
                 if (success)
                 {
