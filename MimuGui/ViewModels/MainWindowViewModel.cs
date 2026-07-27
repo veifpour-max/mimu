@@ -356,18 +356,27 @@ public partial class MainWindowViewModel : ViewModelBase
                     user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
                     ActiveChats.Add(user);
                 }
+                if (string.IsNullOrEmpty(user.PublicKey))
+                {
+                    await FetchPublicKeyAsync(user);
+                }
                 if (_crypto != null && !string.IsNullOrEmpty(user.PublicKey))
                 {
                     try
                     {
-                        var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.Text);
-
-                        if (encryptedPayload != null)
+                        if (msg != null)
                         {
-                            byte[] sharedSecret = _crypto.GetSharedSecret(user.PublicKey);
-                            string decryptedText = _crypto.Decrypt(encryptedPayload, sharedSecret);
-                            msg.Text = decryptedText;
+                            var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.Text);
+
+                            if (encryptedPayload != null)
+                            {
+                                byte[] sharedSecret = _crypto.GetSharedSecret(user.PublicKey);
+                                string decryptedText = _crypto.Decrypt(encryptedPayload, sharedSecret);
+                                msg.Text = decryptedText;
+                            }
+
                         }
+
                     }
                     catch (Exception ex)
                     {
@@ -563,7 +572,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 return;
             }
             await _localMessages.SaveMessagesAsync(msg);
-            string sering = Deser.SerJson(msg);
+            var sering = Deser.SerJson(msg);
             var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);
             await _net.SendPacket(newPacket);
             Dispatcher.UIThread.Post(() =>

@@ -161,7 +161,7 @@ public class UsersRepository
 
     public async Task<User?> GetUserById(Guid id)
     {
-        var query = "SELECT Id, Username, Name FROM Users WHERE Id = @id LIMIT 1;";
+        var query = "SELECT Id, Username, Name, PublicKey FROM Users WHERE Id = @id LIMIT 1;";
         using (var connection = new SqliteConnection(_sqlPath))
         {
             await connection.OpenAsync();
@@ -175,8 +175,9 @@ public class UsersRepository
                         var idFromDb = Guid.Parse(reader.GetString(0));
                         var uname = reader.GetString(1);
                         var name = reader.GetString(2);
+                        var pubKey = reader.GetString(3);
 
-                        return new User(name, uname) { Id = idFromDb };
+                        return new User(name, uname) { Id = idFromDb, PublicKey = pubKey};
                     }
 
                 }
