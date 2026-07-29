@@ -93,15 +93,14 @@ public class SessionManager
 
     public void SavePrivateKey(byte[] key)
     {
-        string path = Path.Combine(_filePath, _keyPath);
         if (OperatingSystem.IsWindows())
         {
             var encryptKey = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);
-            File.WriteAllBytes(path, encryptKey);
+            File.WriteAllBytes(_keyPath, encryptKey);
         }
         else
         {
-            File.WriteAllBytes(path, key);
+            File.WriteAllBytes(_keyPath, key);
         }
     }
     public byte[]? LoadPrivateKey()

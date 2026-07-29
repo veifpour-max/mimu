@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Media;
 using System.Diagnostics;
+using Microsoft.VisualBasic;
 
 namespace MimuGui.ViewModels;
 
@@ -460,6 +461,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     public async Task LoadChatHistory(Guid targetId)
     {
+        byte[] secret = null;
         try
         {
             if (_myId != Guid.Empty)
@@ -468,6 +470,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 var resultFromLoading = await _localMessages.GetChatHistoryAsync(_myId, targetId);
 
+                if (_crypto != null && SelectedUser?.PublicKey != null)
+                {
+                    secret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+                }
+                else
+                {
+                    StatusMessage = "Публичный ключ собеседника не найден!";
+                }
                 if (resultFromLoading != null)
                 {
                     Dispatcher.UIThread.Post(() =>
@@ -475,34 +485,66 @@ public partial class MainWindowViewModel : ViewModelBase
                         ChatMessages.Clear();
                         foreach (var c in resultFromLoading)
                         {
-                            ChatMessages.Add(c);
+                            var desered = Deser.DeserJson<EncryptedPayload>(c.Text);
+                            if (desered != null && _crypto != null)
+                            {
+                                try
+                                {
+                                    var decrypting = _crypto.Decrypt(desered, secret);
+                                    c.Text = decrypting;
+                                }
+                                catch (Exception ex)
+                                {
+                                    StatusMessage = $"Не удалось дешифровать сообщение! {ex.Message}";
+                                }
+                                finally
+                                {
+                                    ChatMessages.Add(c);
+                                }
+
+
+                            }
                         }
                     });
                 }
-                var joinedStr = string.Join("|", _myId, targetId);
-                var packet = new NetworkPacket(PacketType.GetChatsHistory, joinedStr);
+            }
+            var joinedStr = string.Join("|", _myId, targetId);
+            var packet = new NetworkPacket(PacketType.GetChatsHistory, joinedStr);
 
-                var result = await _net.SendAndWaitAsync(packet);
-                var history = Deser.DeserJson<List<Message>>(result);
+            var result = await _net.SendAndWaitAsync(packet);
+            var history = Deser.DeserJson<List<Message>>(result);
 
-                if (history != null)
+            if (history != null)
+            {
+                foreach (var msg in history)
                 {
+                    await _localMessages.SaveMessagesAsync(msg);
+                }
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    ChatMessages.Clear();
                     foreach (var msg in history)
                     {
-                        await _localMessages.SaveMessagesAsync(msg);
-                    }
-                    Dispatcher.UIThread.Post(async () =>
-                    {
-                        ChatMessages.Clear();
-                        foreach (var msg in history)
+                        var desering = Deser.DeserJson<EncryptedPayload>(msg.Text);
+                        if (_crypto != null && desering != null)
                         {
-                            ChatMessages.Add(msg);
+                            secret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+                            try
+                            {
+                                var decrypting = _crypto?.Decrypt(desering, secret);
+                                decrypting = msg.Text;
+                            }
+                            catch
+                            {
+                                StatusMessage = "Не удалось расшифровать сообщения из истории";
+                            }
                         }
+                        ChatMessages.Add(msg);
+                    }
 
-                    });
+                });
 
-                    StatusMessage = $"Чат с @{SelectedUser?.Username}";
-                }
+                StatusMessage = $"Чат с @{SelectedUser?.Username}";
             }
         }
         catch (Exception ex)
@@ -510,6 +552,7 @@ public partial class MainWindowViewModel : ViewModelBase
             StatusMessage = $"Ошибка загрузки истории: {ex.Message}";
         }
     }
+
 
     public async Task SearchingUserAsync()
     {
