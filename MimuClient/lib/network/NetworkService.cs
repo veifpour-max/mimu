@@ -6,7 +6,7 @@ namespace LocalMimu.Models;
 
 public class NetworkService
 {
-    private object _lock;
+    private object _lock = new();
     private TcpClient _client;
     private StreamReader _reader;
     private StreamWriter _writer;
