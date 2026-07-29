@@ -488,6 +488,7 @@ public partial class MainWindowViewModel : ViewModelBase
                             var desered = Deser.DeserJson<EncryptedPayload>(c.Text);
                             if (desered != null && _crypto != null)
                             {
+                                secret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
                                 try
                                 {
                                     var decrypting = _crypto.Decrypt(desered, secret);
@@ -532,7 +533,7 @@ public partial class MainWindowViewModel : ViewModelBase
                             try
                             {
                                 var decrypting = _crypto?.Decrypt(desering, secret);
-                                decrypting = msg.Text;
+                                msg.Text = decrypting;
                             }
                             catch
                             {
@@ -564,7 +565,6 @@ public partial class MainWindowViewModel : ViewModelBase
             var result = await _net.SendAndWaitAsync(packet);
 
             var desering = Deser.DeserJson<User>(result);
-            StatusMessage = $"{IsSearchVisible}";
 
             if (desering != null)
             {
