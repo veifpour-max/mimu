@@ -25,11 +25,11 @@ public static string FormatTime(DateTime time)
         }
         if (time.Date == DateTime.Now.AddDays(-1).Date)
         {
-            return time.ToString("dd:MM:yy | HH:mm:ss");
+            return time.ToString("dd.MM.yy | HH:mm:ss");
         }
         else
         {
-           return time.ToString("dd:MM:yy | HH:mm:ss");  
+           return time.ToString("dd.MM.yy | HH:mm:ss");  
         }
     }
 }
