@@ -1,6 +1,10 @@
 using System.Security.Cryptography;
 using System;
 using System.IO;
+using Microsoft.AspNetCore.DataProtection;
+using System.Runtime.Intrinsics.Arm;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace LocalMimu.Models;
 
@@ -8,6 +12,10 @@ public class SessionManager
 {
     private readonly string _filePath;
     private readonly string _keyPath;
+
+    private CryptoEngine _crypto;
+
+    private readonly IDataProtector _protector;
 
     public SessionManager()
     {
@@ -46,10 +54,48 @@ public class SessionManager
             var encrypted = ProtectedData.Protect(rawBytes, null, DataProtectionScope.CurrentUser);
             File.WriteAllBytes(_filePath, encrypted);
         }
-        else
+        else if (OperatingSystem.IsLinux())
         {
-            File.WriteAllText(_filePath, json);
+            var safe = EncryptKeyLinux(rawBytes);
+            File.WriteAllBytes(_filePath, safe);
         }
+    }
+    private byte[] GetMachineKeyLinux()
+    {
+        string? reading = null;
+        try
+        {
+            reading = File.ReadAllText("/etc/machine-id").Trim();  // здесь особенно
+        }
+        catch
+        {
+            reading = Environment.MachineName;
+        }
+        var exec = reading + Environment.UserName;
+        return SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(exec));
+    }
+    private byte[] EncryptKeyLinux(byte[] rawData)
+    {
+        var key = GetMachineKeyLinux();
+        byte[] nonce = new byte[12];
+        RandomNumberGenerator.Fill(nonce);
+        byte[] chiperText = new byte[rawData.Length];
+        byte[] tag = new byte[16];
+        using var chacha = new ChaCha20Poly1305(key);
+        chacha.Encrypt(nonce, rawData, chiperText, tag);
+        var final = nonce.Concat(chiperText).Concat(tag).ToArray();
+        return final;
+    }
+    private byte[] DecryptKeyLinux(byte[] encryptedData)
+    {
+        var key = GetMachineKeyLinux();
+        var nonce = encryptedData[..12];
+        byte[] tag = encryptedData[^16..];
+        var chiper = encryptedData[12..^16];
+        var plainText = new byte[chiper.Length];
+        using var chacha = new ChaCha20Poly1305(key);
+        chacha.Decrypt(nonce, chiper, tag, plainText);
+        return plainText;
     }
     public SessionModel? LoadSession()
     {
@@ -70,8 +116,10 @@ public class SessionManager
                 }
                 else
                 {
-                    string json = File.ReadAllText(_filePath);
-                    return Deser.DeserJson<SessionModel>(json);
+                    byte[] key = File.ReadAllBytes(_filePath);
+                    var rawBytes = DecryptKeyLinux(key);
+                    string bytes2text = System.Text.Encoding.UTF8.GetString(rawBytes);
+                    return Deser.DeserJson<SessionModel>(bytes2text);
                 }
             }
             catch (Exception ex)
@@ -93,15 +141,15 @@ public class SessionManager
 
     public void SavePrivateKey(byte[] key)
     {
-        string path = Path.Combine(_filePath, _keyPath);
         if (OperatingSystem.IsWindows())
         {
             var encryptKey = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);
-            File.WriteAllBytes(path, encryptKey);
+            File.WriteAllBytes(_keyPath, encryptKey);
         }
         else
         {
-            File.WriteAllBytes(path, key);
+            var safe = EncryptKeyLinux(key);
+            File.WriteAllBytes(_keyPath, safe);
         }
     }
     public byte[]? LoadPrivateKey()
@@ -119,7 +167,8 @@ public class SessionManager
         else
         {
             var encrypted = File.ReadAllBytes(_keyPath);
-            return encrypted;
+            var rawBytes = DecryptKeyLinux(encrypted);
+            return rawBytes;
         }
 
     }
