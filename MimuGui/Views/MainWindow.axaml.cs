@@ -375,14 +375,14 @@ new ListBox()
                 new Grid()
                 {
                     [Grid.RowProperty] = 2,
-                    ColumnDefinitions = new ColumnDefinitions("*, Auto"),
+                    ColumnDefinitions = new ColumnDefinitions("Auto, *, Auto"),
                     Background = Brush.Parse("#1E1E1E"),
                     Children =
                     {
                         new TextBox()
                         {
                             AcceptsReturn = true,
-                            [Grid.ColumnProperty] = 0,
+                            [Grid.ColumnProperty] = 1,
                             Watermark = "Написать сообщение...",
                             VerticalAlignment = VerticalAlignment.Center,
                             Margin = Avalonia.Thickness.Parse("10"),
@@ -391,12 +391,18 @@ new ListBox()
                         },
                         new Button()
                         {
-                            [Grid.ColumnProperty] = 1,
+                            [Grid.ColumnProperty] = 2,
                             Content = "Отправить",
                             VerticalAlignment = VerticalAlignment.Center,
                             Margin = Avalonia.Thickness.Parse("0,0,10,0"),
                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnSendClicked)),
                             HotKey = new KeyGesture(Key.Enter),
+                        },
+                        new Button()
+                        {
+                            [Grid.ColumnProperty] = 0,
+                            Content = "📎",
+                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnAttachClick))
                         }
                     }
                 }

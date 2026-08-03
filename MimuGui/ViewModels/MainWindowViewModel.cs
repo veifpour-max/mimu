@@ -62,6 +62,11 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public async Task OnAttachClick()
+    {
+        StatusMessage = "Выбор файла в разработке.";
+    }
+
     private async void HandleStatusChanged(Guid msgId, MessageStatus newStatus)
     {
 
