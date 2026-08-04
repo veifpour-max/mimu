@@ -62,6 +62,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         try
         {
             var received = await reader.ReadLineAsync();
+            if (string.IsNullOrWhiteSpace(received))
+            {
+                continue;
+            }
             var authPacket = JsonSerializer.Deserialize<NetworkPacket>(received);
 
             if (authPacket != null && authPacket.Type == PacketType.Auth)
@@ -145,6 +149,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         {
 
             var received = await reader.ReadLineAsync();
+            if (string.IsNullOrWhiteSpace(received))
+            {
+                continue;
+            }
             if (received == null) break;
             var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
             if (msg != null && msg.Type == PacketType.ChatMessage)

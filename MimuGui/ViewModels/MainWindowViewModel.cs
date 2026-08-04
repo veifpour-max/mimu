@@ -8,6 +8,7 @@ using System.Linq;
 using Avalonia.Media;
 using System.Diagnostics;
 using Microsoft.VisualBasic;
+using System.Runtime.Serialization;
 
 namespace MimuGui.ViewModels;
 
@@ -19,6 +20,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
+        StatusMessage = "Готов ко входу";
+        IsLoginVisible = true;
+        IsRegisterVisible = false;
+        IsMainVisible = false;
         _net.OnMessageReceived += HandleIncomingMessage;
         _net.OnStateChanged += (state) => StatingConnection(state);
         _net.OnMessageStatusChanged += HandleStatusChanged;
@@ -52,11 +57,13 @@ public partial class MainWindowViewModel : ViewModelBase
                 await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
                 StatusMessage = "Готов ко входу";
                 IsLoginVisible = true;
+                IsRegisterVisible = false;
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Ошибка подключения к серверу: {ex.Message}";
                 IsLoginVisible = true;
+                IsRegisterVisible = false;
                 throw;
             }
         }
@@ -135,6 +142,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusMessage = $"Добро пожаловать обратно, {user.Username}";
                     _net.StartListening();
                     IsLoginVisible = false;
+                    IsRegisterVisible = false;
+                    IsMainVisible = true;
 
                     var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
                     var chats = Deser.DeserJson<List<User>>(result);
@@ -175,14 +184,19 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly AppConfig _config = ConfigLoader.Load();
     public Brush MessagesBrush;
 
+    private string _regName;
+    private string _regUsername;
+    private string _regPassword;
     private string _username = "";
     private string _password = "";
 
     private bool _isReconnecting = false;
+    private bool _isMainVisible = false;
     private Guid _myId;
     private User? _selectedUser;
     public string _StatusMessage = "";
     private bool _isLoginVisible = true;
+    private bool _isRegisterVisible = false;
     public bool isSearchVisible = false;
     private string _search;
     private string _newMessageText;
@@ -204,7 +218,32 @@ public partial class MainWindowViewModel : ViewModelBase
         get => _password;
         set => SetProperty(ref _password, value);
     }
+    public string RegName
+    {
+        get => _regName;
+        set => SetProperty(ref _regName, value);
+    }
+    public string RegPassword
+    {
+        get => _regPassword;
+        set => SetProperty(ref _regPassword, value);
+    }
+    public string RegUsername
+    {
+        get => _regUsername;
+        set => SetProperty(ref _regUsername, value);
+    }
 
+    public bool IsRegisterVisible
+    {
+        get => _isRegisterVisible;
+        set => SetProperty(ref _isRegisterVisible, value);
+    }
+    public bool IsMainVisible
+    {
+        get => _isMainVisible;
+        set => SetProperty(ref _isMainVisible, value);
+    }
     public bool IsSearchVisible
     {
         get => isSearchVisible;
@@ -338,80 +377,26 @@ public partial class MainWindowViewModel : ViewModelBase
             });
         }
     }
-    private void OLDHandleIncomingMessage(Message msg)
+
+    public void SwitchToRegister()
     {
-        Task.Run(async () =>
-        {
-            try
-            {
-                await _localMessages.SaveMessagesAsync(msg);
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.UIThread.Post(() => StatusMessage = $"Ошибка БД: {ex.Message}");
-            }
-        });
-
-        Dispatcher.UIThread.Post(async () =>
-        {
-            try
-            {
-                var user = ActiveChats.FirstOrDefault(i => i.Id == msg.SenderID);
-                if (user == null)
-                {
-                    user = new User("Unknown", msg.SenderUsername) { Id = msg.SenderID };
-                    ActiveChats.Add(user);
-                }
-                if (string.IsNullOrEmpty(user.PublicKey))
-                {
-                    await FetchPublicKeyAsync(user);
-                }
-                if (_crypto != null && !string.IsNullOrEmpty(user.PublicKey))
-                {
-                    try
-                    {
-                        if (msg != null)
-                        {
-                            var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.Text);
-
-                            if (encryptedPayload != null)
-                            {
-                                byte[] sharedSecret = _crypto.GetSharedSecret(user.PublicKey);
-                                string decryptedText = _crypto.Decrypt(encryptedPayload, sharedSecret);
-                                msg.Text = decryptedText;
-                            }
-
-                        }
-
-                    }
-                    catch (Exception ex)
-                    {
-                        msg.Text = "Ошибка дешифровки сообщения!";
-                    }
-                }
-
-                if (SelectedUser != null && msg.SenderID == SelectedUser.Id)
-                {
-                    ChatMessages.Add(msg);
-                }
-                else
-                {
-                    StatusMessage = $"Новое сообщение от {msg.SenderUsername}";
-                }
-
-                user.LastMessageText = msg.Text;
-
-                if (SelectedUser == null || SelectedUser.Id != msg.SenderID)
-                {
-                    user.UnreadCount++;
-                    _ = _localMessages.SaveUserAsync(user);
-                }
-            }
-            catch (Exception e)
-            {
-                StatusMessage = $"Ошибка отрисовки: {e.Message}";
-            }
-        });
+        StatusMessage = "";
+        IsRegisterVisible = true;
+        IsLoginVisible = false;
+        IsMainVisible = false;
+    }
+    public void SwitchToLogin()
+    {
+        StatusMessage = "";
+        IsLoginVisible = true;
+        IsRegisterVisible = false;
+        IsMainVisible = false;
+    }
+    public void ResetAfterRegisterOrLogin()
+    {
+        IsLoginVisible = false;
+        IsRegisterVisible = false;
+        IsMainVisible = true;
     }
     private async Task ProcessIncomingMessageAsync(Message msg)
     {
@@ -589,6 +574,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (shTools.check(Username) && shTools.check(Password))
         {
+            await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
             StatusMessage = "Вход..";
             var loginPayload = new LoginPayload(Username, Password);
             var user = await _net.AuthenticateAsync(loginPayload);
@@ -610,6 +596,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 _sessionManager.SaveSession(user.Username, Password, user.Id, "127.0.0.1");
                 _net.StartListening();
                 IsLoginVisible = false;
+                IsRegisterVisible = false;
+                IsMainVisible = true;
 
                 var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
                 var chats = Deser.DeserJson<List<User>>(result);
@@ -704,6 +692,29 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = $"Ошибка загрузки ключа: {ex.Message}";
+        }
+    }
+    public async Task OnRegisterClick()
+    {
+        if (shTools.check(RegName) && shTools.check(RegUsername) && shTools.check(RegPassword))
+        {
+            using var crypto = new CryptoEngine();
+            var publicKey = crypto.GetMyPublicKeyBase64();
+            var privateKey = crypto.ExportMyPrivateKey();
+            var payload = new RegisterPayload(RegName, RegUsername, RegUsername, publicKey);
+            var success = await _net.RegisterAsync(payload);
+            _sessionManager.SavePrivateKey(privateKey);
+            if (success)
+            {
+                StatusMessage = "Успешная регистрация, теперь войдите";
+                SwitchToLogin();
+                Username = RegUsername;
+            }
+            else
+            {
+                StatusMessage = "Ошибка регистрации. Возможно, username занят.";
+            }
+
         }
     }
 
