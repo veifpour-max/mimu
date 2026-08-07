@@ -179,8 +179,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private readonly NetworkService _net = new NetworkService();
     public string Greeting { get; } = "LocalMimu v0.1";
-    public string InputText { get; set; } = "Пиши сюда...";
-
     private readonly AppConfig _config = ConfigLoader.Load();
     public Brush MessagesBrush;
 
