@@ -19,6 +19,8 @@ MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
 
 X509Certificate2 serverCert = new X509Certificate2("server.pfx", "12345");
 
+MinioService _minio = new();
+
 object _lock = new object();
 
 TcpListener server = new TcpListener(IPAddress.Any, 8000);
@@ -244,6 +246,13 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var send = new NetworkPacket(PacketType.ServerResponse, answerToSend);
                 var serSend = Deser.SerJson(send);
                 await connetion.SendAsync(serSend);
+            }
+            if(msg != null && msg.Type == PacketType.RequestUploadUrl)
+            {
+                var url = await _minio.GenerateUploadUrl(msg.PayLoad);
+                var send = new NetworkPacket(PacketType.ServerResponse, url);
+                var desering = Deser.SerJson(send);
+                await connetion.SendAsync(desering);
             }
 
         }

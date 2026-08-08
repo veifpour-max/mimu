@@ -65,6 +65,35 @@ public class CryptoEngine : IDisposable
 
         return System.Text.Encoding.UTF8.GetString(text);
     }
+    public EncryptedPayload EncryptBytes(byte[] plainBytes, byte[] sharedSecret)
+    {
+         byte[] nonce = new byte[12];
+        RandomNumberGenerator.Fill(nonce);
+        byte[] ChiperText = new byte[plainBytes.Length];
+        byte[] Tag = new byte[16];
+
+        ChaCha20Poly1305 chacha = new(sharedSecret);
+        chacha.Encrypt(nonce, plainBytes, ChiperText, Tag);
+
+        return new EncryptedPayload
+        {
+            NonceBase64 = Convert.ToBase64String(nonce),
+            ChiperTextBase64 = Convert.ToBase64String(ChiperText),
+            TagBase64 = Convert.ToBase64String(Tag)
+        };
+    }
+    public string DecryptBytes(EncryptedPayload payload, byte[] sharedSecret)
+    {
+        var decodeNonce = Convert.FromBase64String(payload.NonceBase64);
+        var decodeTag = Convert.FromBase64String(payload.TagBase64);
+        var decodeChiperText = Convert.FromBase64String(payload.ChiperTextBase64);
+
+        byte[] text = new byte[decodeChiperText.Length];
+        ChaCha20Poly1305 cha = new(sharedSecret);
+        cha.Decrypt(decodeNonce, decodeChiperText, decodeTag, text);
+
+        return System.Text.Encoding.UTF8.GetString(text);
+    }
 
     public void Dispose()
     {

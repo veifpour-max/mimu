@@ -9,6 +9,10 @@ using Avalonia.Media;
 using System.Diagnostics;
 using Microsoft.VisualBasic;
 using System.Runtime.Serialization;
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+using System.IO;
+using System.Net.Http;
 
 namespace MimuGui.ViewModels;
 
@@ -17,9 +21,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly SessionManager _sessionManager = new SessionManager();
     private readonly LocalMessagesRepository _localMessages = new();
     private CryptoEngine? _crypto;
+    public IStorageService StorageService {get; set;}
+    
 
     public MainWindowViewModel()
     {
+
         StatusMessage = "Готов ко входу";
         IsLoginVisible = true;
         IsRegisterVisible = false;
@@ -71,8 +78,35 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task OnAttachClick()
     {
-        StatusMessage = "Выбор файла в разработке.";
+       if(StorageService == null) return;
+
+       var filePath = await StorageService.PickFileAsync();
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            StatusMessage = "Файл не выбран";
+            return;
+        }
+        StatusMessage = $"Выбран файл: {filePath}";
+
+        if(_crypto != null && SelectedUser?.PublicKey != null)
+        {
+            var sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+            byte[] bytesOfFile = File.ReadAllBytes(filePath);
+            if(bytesOfFile.Length <= 5242880)
+            {
+                var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
+                var seringIntoJson = Deser.SerJson(encryptedPayload);
+                var filename = Guid.NewGuid().ToString() + ".enc";
+                var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
+                var send = await _net.SendAndWaitAsync(networkPacket); // сомнения
+                using var http = new HttpClient();
+                HttpContent content = new StringContent(seringIntoJson);
+                await http.PutAsync(_config.ServerIp, content); // сомнения
+
+            }
+        }
     }
+
 
     private async void HandleStatusChanged(Guid msgId, MessageStatus newStatus)
     {

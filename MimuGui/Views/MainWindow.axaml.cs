@@ -8,15 +8,13 @@ using System.Drawing;
 using Avalonia.Styling;
 using Avalonia.Media;
 using Avalonia.Controls.Templates;
-using LocalMimu.Models;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using System;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Reflection;
 using Avalonia.Input;
-using Microsoft.VisualBasic;
+using LocalMimu.Models;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 
 namespace MimuGui.Views;
 
@@ -27,6 +25,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _vm = new MainWindowViewModel();
+        _vm.StorageService = new WindowStorageService(this);
         DataContext = _vm;
         BuildUI();
         _vm.ChatMessages.CollectionChanged += (s, e) =>
@@ -40,6 +39,29 @@ public partial class MainWindow : Window
                 _chat.ScrollIntoView(lastMsg);
             }, Avalonia.Threading.DispatcherPriority.Loaded);
         };
+    }
+
+    private class WindowStorageService : IStorageService
+    {
+        private readonly Window _window;
+        public WindowStorageService(Window window)
+        {
+            _window = window;
+        }
+        public async Task<string?> PickFileAsync()
+        {
+            var storage = _window.StorageProvider;
+            var files = await storage.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = "Выберите файл для отправки",
+                AllowMultiple = false
+            });
+            if(files.Count >= 1)
+            {
+                return files[0].TryGetLocalPath();
+            }
+            return null;
+        }
     }
 
     public ListBox _chat { get; set; }
