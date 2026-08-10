@@ -253,7 +253,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var serSend = Deser.SerJson(send);
                 await connetion.SendAsync(serSend);
             }
-            if(msg != null && msg.Type == PacketType.RequestUploadUrl)
+            if(msg != null && msg.Type.ToString() == "12")
             {
                 Console.WriteLine("Запрос на получение url получен!");
                 var url = await _minio.GenerateUploadUrl(msg.PayLoad);

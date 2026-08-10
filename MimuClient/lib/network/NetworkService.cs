@@ -10,6 +10,7 @@ public class NetworkService
     private TcpClient _client;
     private StreamReader _reader;
     private StreamWriter _writer;
+    private bool _isListening = false;
     public event Action<Message>? OnMessageReceived;
 
     public event Action<Guid, MessageStatus>? OnMessageStatusChanged;
@@ -19,6 +20,7 @@ public class NetworkService
     public async Task ConnectAsync(string ip, int port)
     {
         DisposeOldResources();
+        _isListening = false;
         OnStateChanged?.Invoke(ConnectionStates.Connecting);
         _client = new TcpClient();
         await _client.ConnectAsync(ip, port);
@@ -42,6 +44,7 @@ public class NetworkService
         _writer = null;
         _reader = null;
         _client = null;
+        _isListening = false;
     }
 
     public async Task<string> SendAndWaitAsync(NetworkPacket packet)
@@ -104,6 +107,8 @@ public class NetworkService
     }
     public void StartListening()
     {
+        if (_isListening) return;
+        _isListening = true;
         _ = StartReceiving();
     }
 

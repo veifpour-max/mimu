@@ -16,6 +16,7 @@ using System.Net.Http;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using SQLitePCL;
 
 namespace MimuGui.ViewModels;
 
@@ -125,6 +126,18 @@ public partial class MainWindowViewModel : ViewModelBase
                     }
                     var filename = Guid.NewGuid().ToString() + ".enc";
                     var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
+                    StatusMessage = "Попытка связаться с сервером";
+                    try
+                    {
+                        var ping = new NetworkPacket(PacketType.Ping, "");
+                        await _net.SendPacket(ping);
+                    }
+                    catch
+                    {
+                        StatusMessage = "Труба мертва! Переподключаюсь";
+                        await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
+                        StatusMessage = "Переподключение успешно";
+                    }
 
                     StatusMessage = "Запрос ссылки у сервера...";
 
