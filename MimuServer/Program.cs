@@ -157,14 +157,23 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (received == null) break;
             var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
-            if(msg == null)
+            if (msg == null)
             {
                 Console.WriteLine("Десериализация вернула NULL");
                 continue;
             }
-            Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
+            Console.WriteLine($"Прилетел пакет: {(int)msg.Type}");
+
+            if ((int)msg.Type == 12)
+            {
+                Console.WriteLine("АХА! Сервер поймал 12 пакет, но Enum его не знает!");
+                var url = await _minio.GenerateUploadUrl(msg.PayLoad);
+                var send = new NetworkPacket(PacketType.ServerResponse, url);
+                await connetion.SendAsync(Deser.SerJson(send));
+            }
             if (msg != null && msg.Type == PacketType.ChatMessage)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");
                 var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
 
@@ -180,6 +189,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
             if (msg != null && msg.Type == PacketType.SearchUser)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var findingTheUser = await repo.FindByUsername(msg.PayLoad);
                 var SearchJson = JsonSerializer.Serialize(findingTheUser);
                 var ServerResponsing = new NetworkPacket(PacketType.ServerResponse, SearchJson);
@@ -191,6 +201,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (msg != null && msg.Type == PacketType.GetChats)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
                 Guid desering = Guid.Parse(msg.PayLoad);
                 List<Guid> checking = await msgRepo.GetContactIdsAsync(desering);
@@ -212,6 +223,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (msg != null && msg.Type == PacketType.GetChatsHistory)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var makedResult = msg.PayLoad.Split('|');
                 Guid myId = Guid.Parse(makedResult[0]);
                 Guid targetId = Guid.Parse(makedResult[1]);
@@ -227,6 +239,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (msg != null && msg.Type == PacketType.MessageDelivered)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var splitingResult = msg.PayLoad.Split("|");
                 if (splitingResult.Length == 2)
                 {
@@ -245,6 +258,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (msg != null && msg.Type == PacketType.GetPublicKey)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var id = Guid.Parse(msg.PayLoad);
                 var key = await repo.GetPublicKeyAsync(id);
 
@@ -253,8 +267,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var serSend = Deser.SerJson(send);
                 await connetion.SendAsync(serSend);
             }
-            if(msg != null && msg.Type.ToString() == "12")
+            if (msg != null && msg.Type == PacketType.RequestUploadUrl)
             {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine("Запрос на получение url получен!");
                 var url = await _minio.GenerateUploadUrl(msg.PayLoad);
                 Console.WriteLine("url сгенерирован!");
