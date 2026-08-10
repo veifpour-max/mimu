@@ -162,13 +162,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             Console.WriteLine($"Прилетел пакет: {(int)msg.Type}");
 
-            if ((int)msg.Type == 12)
-            {
-                Console.WriteLine("АХА! Сервер поймал 12 пакет, но Enum его не знает!");
-                var url = await _minio.GenerateUploadUrl(msg.PayLoad);
-                var send = new NetworkPacket(PacketType.ServerResponse, url);
-                await connetion.SendAsync(Deser.SerJson(send));
-            }
             if (msg != null && msg.Type == PacketType.ChatMessage)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
@@ -185,7 +178,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine($"[{finalMsg.SentAt:HH:mm:ss}] от {finalMsg.SenderID} до {finalMsg.ReceiverID}: {finalMsg.Text}");
             }
 
-            if (msg != null && msg.Type == PacketType.SearchUser)
+            else if (msg != null && msg.Type == PacketType.SearchUser)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var findingTheUser = await repo.FindByUsername(msg.PayLoad);
@@ -197,7 +190,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine($"Ответ отправлен");
 
             }
-            if (msg != null && msg.Type == PacketType.GetChats)
+            else if (msg != null && msg.Type == PacketType.GetChats)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
@@ -219,7 +212,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 await writer.WriteLineAsync(finalpacket);
                 Console.WriteLine($"Отправлен список чатов ({checking.Count} шт.) для {desering}");
             }
-            if (msg != null && msg.Type == PacketType.GetChatsHistory)
+            else if (msg != null && msg.Type == PacketType.GetChatsHistory)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var makedResult = msg.PayLoad.Split('|');
@@ -235,7 +228,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 await connetion.SendAsync(finalPack);
             }
-            if (msg != null && msg.Type == PacketType.MessageDelivered)
+            else if (msg != null && msg.Type == PacketType.MessageDelivered)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var splitingResult = msg.PayLoad.Split("|");
@@ -254,7 +247,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     }
                 }
             }
-            if (msg != null && msg.Type == PacketType.GetPublicKey)
+            else if (msg != null && msg.Type == PacketType.GetPublicKey)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var id = Guid.Parse(msg.PayLoad);
@@ -265,7 +258,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var serSend = Deser.SerJson(send);
                 await connetion.SendAsync(serSend);
             }
-            if (msg != null && msg.Type == PacketType.RequestUploadUrl)
+            else if (msg != null && msg.Type == PacketType.RequestUploadUrl)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine("Запрос на получение url получен!");
