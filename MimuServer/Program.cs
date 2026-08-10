@@ -157,6 +157,12 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if (received == null) break;
             var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
+            if(msg == null)
+            {
+                Console.WriteLine("Десериализация вернула NULL");
+                continue;
+            }
+            Console.WriteLine("Пакет распаршен");
             if (msg != null && msg.Type == PacketType.ChatMessage)
             {
                 Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");
