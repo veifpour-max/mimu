@@ -7,7 +7,6 @@ namespace LocalMimu.Models;
 public class NetworkService
 {
     private object _lock = new();
-    private SemaphoreSlim _sendLock = new(1,1);
     private TcpClient _client;
     private StreamReader _reader;
     private StreamWriter _writer;
@@ -46,7 +45,6 @@ public class NetworkService
         _reader = null;
         _client = null;
         _isListening = false;
-        _sendLock.Dispose();
     }
 
     public async Task<string> SendAndWaitAsync(NetworkPacket packet, int timeout = 10000)
@@ -93,10 +91,6 @@ public class NetworkService
         catch (Exception ex)
         {
             Console.WriteLine($"[TRACK CRASH] Ошибка в SendPacket: {ex.Message}");
-        }
-        finally
-        {
-            _sendLock.Release();
         }
     }
     public async Task<bool> RegisterAsync(RegisterPayload registerPayload)
