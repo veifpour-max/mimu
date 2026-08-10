@@ -101,13 +101,13 @@ public partial class MainWindowViewModel : ViewModelBase
                 var filePath = files[0].TryGetLocalPath();
                 StatusMessage = $"Выбран файл: {filePath}";
 
-                if(_crypto == null)
+                if (_crypto == null)
                 {
                     StatusMessage = "Сбой крипто-движка";
                     return;
                 }
                 StatusMessage = "1 условие пройдено";
-                if(SelectedUser == null || string.IsNullOrWhiteSpace(SelectedUser.PublicKey))
+                if (SelectedUser == null || string.IsNullOrWhiteSpace(SelectedUser.PublicKey))
                 {
                     StatusMessage = "У собеседника нет ключа!";
                 }
@@ -115,60 +115,60 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 if (_crypto != null && SelectedUser?.PublicKey != null)
                 {
-                    StatusMessage = "3 условие пройдено";
                     var sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
-                    StatusMessage = "Секрет получен";
-                    byte[] bytesOfFile = File.ReadAllBytes(filePath);
-                     StatusMessage = "Байты прочитаны";
-                    if(bytesOfFile.Length > 5242880)
+
+                    FileInfo fi = new FileInfo(filePath);
+                    if (fi.Length > 5242880)
                     {
                         StatusMessage = "Твой файл слишком большой!";
+                        return;
                     }
-                    StatusMessage = "4 условие пройдено";
-                    if (bytesOfFile.Length <= 5242880)
-                    {
-                        StatusMessage = "вступаем в 5 условие";
-                        var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
-                        StatusMessage = "Байты зашифрованы";
-                        var seringIntoJson = Deser.SerJson(encryptedPayload);
-                        StatusMessage = "Сериализация успешна";
-                        var filename = Guid.NewGuid().ToString() + ".enc";
-                        StatusMessage = "filename создан без проблем";
-                        var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
-                        StatusMessage = "networkpacket создан без проблем";
-                        var send = await _net.SendAndWaitAsync(networkPacket);
-                        StatusMessage = "networkpacket отправлен в очередь";
-                        var response = Deser.DeserJson<NetworkPacket>(send);
-                        StatusMessage = "получен ответ";
-                        if(response == null || string.IsNullOrEmpty(response.PayLoad))
-                        {
-                            StatusMessage = "вступаем в 6 условие";
-                            StatusMessage = "Сервер не дал ссылку на загрузку";
-                            return;
-                        }
-                        StatusMessage = "6 условие пройдено";
-                        string url = response.PayLoad;
-                        StatusMessage = "url создан";
-                        using var http = new HttpClient();
-                        StatusMessage = "http создан";
-                        byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(seringIntoJson);
-                        StatusMessage = "байты есть";
-                        using ByteArrayContent content = new ByteArrayContent(contentBytes);
-                        StatusMessage = "контент создан";
-                        content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
-                        StatusMessage = "Загрузка файла..";
-                        var responseHttp = await http.PutAsync(url, content);
-                        if (responseHttp.IsSuccessStatusCode)
-                        {
-                            StatusMessage = "Файл успешно отправлен!";
-                        }
-                        else
-                        {
-                            StatusMessage = $"Ошибка: {responseHttp.StatusCode}";
-                        }
+                    var filename = Guid.NewGuid().ToString() + ".enc";
+                    var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
 
+                    StatusMessage = "Запрос ссылки у сервера...";
+
+                    var responseJson = await _net.SendAndWaitAsync(networkPacket);
+
+                    if (string.IsNullOrEmpty(responseJson))
+                    {
+                        StatusMessage = "Сервер промолчал!";
+                        return;
+                    }
+
+                    var response = Deser.DeserJson<NetworkPacket>(responseJson);
+                    if (response == null || string.IsNullOrEmpty(response.PayLoad))
+                    {
+                        StatusMessage = "Сервер не дал ссылку на загрузку";
+                        return;
+                    }
+
+                    string url = response.PayLoad;
+                    StatusMessage = "Ссылка получена! Шифрую файл...";
+
+                    byte[] bytesOfFile = File.ReadAllBytes(filePath);
+                    var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
+                    var seringIntoJson = Deser.SerJson(encryptedPayload);
+
+                    byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(seringIntoJson);
+                    using ByteArrayContent content = new ByteArrayContent(contentBytes);
+                    content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+
+                    StatusMessage = "Загрузка файла в MinIO...";
+                    using var http = new HttpClient();
+                    var responseHttp = await http.PutAsync(url, content);
+
+                    if (responseHttp.IsSuccessStatusCode)
+                    {
+                        StatusMessage = "Файл успешно отправлен!";
+                    }
+                    else
+                    {
+                        StatusMessage = $"Ошибка HTTP: {responseHttp.StatusCode}";
                     }
                 }
+
+
             }
             else
             {

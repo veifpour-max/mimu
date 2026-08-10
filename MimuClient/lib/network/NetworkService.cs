@@ -54,7 +54,10 @@ public class NetworkService
     public async Task SendPacket(NetworkPacket packet)
     {
         var send = Deser.SerJson(packet);
+        Console.WriteLine($"Попытка отправить пакет типа {packet.Type}");
+        Console.WriteLine($"JSON: {send}");
         await _writer.WriteLineAsync(send);
+        Console.WriteLine("Пакет ушел!");
     }
     public async Task<bool> RegisterAsync(RegisterPayload registerPayload)
     {
