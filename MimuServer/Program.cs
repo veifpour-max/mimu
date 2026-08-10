@@ -145,23 +145,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
     while (true)
     {
-        // ВРЕМЕННЫЙ ДЕБАГ:
-        try
-        {
-            byte[] buffer = new byte[1024];
-            int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-            if (bytesRead > 0)
-            {
-                string rawText = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                Console.WriteLine($"[СЫРЫЕ БАЙТЫ ИЗ ТРУБЫ]: {rawText}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Ошибка чтения байтов: {ex.Message}");
-        }
-        // -----------------
-
         try
         {
 
