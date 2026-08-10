@@ -249,10 +249,15 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             if(msg != null && msg.Type == PacketType.RequestUploadUrl)
             {
+                Console.WriteLine("Запрос на получение url получен!");
                 var url = await _minio.GenerateUploadUrl(msg.PayLoad);
+                Console.WriteLine("url сгенерирован!");
                 var send = new NetworkPacket(PacketType.ServerResponse, url);
+                Console.WriteLine("networkpacket сделан!");
                 var desering = Deser.SerJson(send);
+                Console.WriteLine("networkpacket сериализован");
                 await connetion.SendAsync(desering);
+                Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
             }
 
         }

@@ -26,8 +26,18 @@ public partial class MainWindow : Window
     {
         _vm = new MainWindowViewModel();
         _vm.StorageService = new WindowStorageService(this);
+        if(_vm.StorageService == null)
+        {
+            Console.WriteLine("Иньекция НЕ прошла");
+        }
+        else
+        {
+            Console.WriteLine("Иньекция успешна");
+        }
+        _vm.AttachButtonText = $"📎 {_vm.InstanceId.ToString().Substring(0,4)}";
         DataContext = _vm;
         BuildUI();
+        _vm.StatusMessage = $"[MAINWINDOW] Я создал ViewModel с ID: {_vm.InstanceId.ToString().Substring(0,8)}";
         _vm.ChatMessages.CollectionChanged += (s, e) =>
         {
             if (_vm.ChatMessages.Count == 0) return;
@@ -464,7 +474,7 @@ public partial class MainWindow : Window
                                         new Button()
                                         {
                                             [Grid.ColumnProperty] = 0,
-                                            Content = "📎",
+                                            [!Button.ContentProperty] = new Binding(nameof(MainWindowViewModel.AttachButtonText)),
                                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnAttachClick))
                                         }
                                     }

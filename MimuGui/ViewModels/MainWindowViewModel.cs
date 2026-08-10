@@ -13,6 +13,9 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using System.IO;
 using System.Net.Http;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 
 namespace MimuGui.ViewModels;
 
@@ -21,12 +24,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly SessionManager _sessionManager = new SessionManager();
     private readonly LocalMessagesRepository _localMessages = new();
     private CryptoEngine? _crypto;
-    public IStorageService StorageService {get; set;}
-    
+    public IStorageService? StorageService { get; set; }
+
 
     public MainWindowViewModel()
     {
-
         StatusMessage = "Готов ко входу";
         IsLoginVisible = true;
         IsRegisterVisible = false;
@@ -78,33 +80,106 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task OnAttachClick()
     {
-       if(StorageService == null) return;
+        StatusMessage = "Открытие файлов...";
 
-       var filePath = await StorageService.PickFileAsync();
-        if (string.IsNullOrWhiteSpace(filePath))
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            StatusMessage = "Файл не выбран";
-            return;
-        }
-        StatusMessage = $"Выбран файл: {filePath}";
-
-        if(_crypto != null && SelectedUser?.PublicKey != null)
-        {
-            var sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
-            byte[] bytesOfFile = File.ReadAllBytes(filePath);
-            if(bytesOfFile.Length <= 5242880)
+            var mainWindow = desktop.MainWindow;
+            if (mainWindow == null)
             {
-                var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
-                var seringIntoJson = Deser.SerJson(encryptedPayload);
-                var filename = Guid.NewGuid().ToString() + ".enc";
-                var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
-                var send = await _net.SendAndWaitAsync(networkPacket); // сомнения
-                using var http = new HttpClient();
-                HttpContent content = new StringContent(seringIntoJson);
-                await http.PutAsync(_config.ServerIp, content); // сомнения
+                StatusMessage = "Ошибка: Окно не найдено.";
+                return;
+            }
+            var storage = mainWindow.StorageProvider;
+            var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Выберите файл для отправки",
+                AllowMultiple = false
+            });
+            if (files != null && files.Count >= 1)
+            {
+                var filePath = files[0].TryGetLocalPath();
+                StatusMessage = $"Выбран файл: {filePath}";
 
+                if(_crypto == null)
+                {
+                    StatusMessage = "Сбой крипто-движка";
+                    return;
+                }
+                StatusMessage = "1 условие пройдено";
+                if(SelectedUser == null || string.IsNullOrWhiteSpace(SelectedUser.PublicKey))
+                {
+                    StatusMessage = "У собеседника нет ключа!";
+                }
+                StatusMessage = "2 условие пройдено";
+
+                if (_crypto != null && SelectedUser?.PublicKey != null)
+                {
+                    StatusMessage = "3 условие пройдено";
+                    var sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+                    StatusMessage = "Секрет получен";
+                    byte[] bytesOfFile = File.ReadAllBytes(filePath);
+                     StatusMessage = "Байты прочитаны";
+                    if(bytesOfFile.Length > 5242880)
+                    {
+                        StatusMessage = "Твой файл слишком большой!";
+                    }
+                    StatusMessage = "4 условие пройдено";
+                    if (bytesOfFile.Length <= 5242880)
+                    {
+                        StatusMessage = "вступаем в 5 условие";
+                        var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
+                        StatusMessage = "Байты зашифрованы";
+                        var seringIntoJson = Deser.SerJson(encryptedPayload);
+                        StatusMessage = "Сериализация успешна";
+                        var filename = Guid.NewGuid().ToString() + ".enc";
+                        StatusMessage = "filename создан без проблем";
+                        var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
+                        StatusMessage = "networkpacket создан без проблем";
+                        var send = await _net.SendAndWaitAsync(networkPacket);
+                        StatusMessage = "networkpacket отправлен в очередь";
+                        var response = Deser.DeserJson<NetworkPacket>(send);
+                        StatusMessage = "получен ответ";
+                        if(response == null || string.IsNullOrEmpty(response.PayLoad))
+                        {
+                            StatusMessage = "вступаем в 6 условие";
+                            StatusMessage = "Сервер не дал ссылку на загрузку";
+                            return;
+                        }
+                        StatusMessage = "6 условие пройдено";
+                        string url = response.PayLoad;
+                        StatusMessage = "url создан";
+                        using var http = new HttpClient();
+                        StatusMessage = "http создан";
+                        byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(seringIntoJson);
+                        StatusMessage = "байты есть";
+                        using ByteArrayContent content = new ByteArrayContent(contentBytes);
+                        StatusMessage = "контент создан";
+                        content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                        StatusMessage = "Загрузка файла..";
+                        var responseHttp = await http.PutAsync(url, content);
+                        if (responseHttp.IsSuccessStatusCode)
+                        {
+                            StatusMessage = "Файл успешно отправлен!";
+                        }
+                        else
+                        {
+                            StatusMessage = $"Ошибка: {responseHttp.StatusCode}";
+                        }
+
+                    }
+                }
+            }
+            else
+            {
+                StatusMessage = "Файл не выбран.";
             }
         }
+        else
+        {
+            StatusMessage = "Ошибка: Неверный тип приложения.";
+        }
+
     }
 
 
@@ -221,7 +296,14 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _regPassword;
     private string _username = "";
     private string _password = "";
+    public readonly Guid InstanceId = Guid.NewGuid();
 
+    private string _attachButtonText = "📎";
+    public string AttachButtonText
+    {
+        get => _attachButtonText;
+        set => SetProperty(ref _attachButtonText, value);
+    }
     private bool _isReconnecting = false;
     private bool _isMainVisible = false;
     private Guid _myId;
