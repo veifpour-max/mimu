@@ -162,7 +162,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine("Десериализация вернула NULL");
                 continue;
             }
-            Console.WriteLine("Пакет распаршен");
+            Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
             if (msg != null && msg.Type == PacketType.ChatMessage)
             {
                 Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");

@@ -268,6 +268,10 @@ public partial class MainWindowViewModel : ViewModelBase
                     IsMainVisible = true;
 
                     var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
+                    Console.WriteLine("Тест - отправка фейк запроса на url");
+                    var test = new NetworkPacket(PacketType.RequestUploadUrl, "test_file.enc");
+                    var testResponce = await _net.SendAndWaitAsync(test);
+                    Console.WriteLine($"Ответ сервера: {testResponce}");
                     var chats = Deser.DeserJson<List<User>>(result);
                     if (chats != null)
                     {

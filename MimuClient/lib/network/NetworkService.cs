@@ -56,11 +56,30 @@ public class NetworkService
     }
     public async Task SendPacket(NetworkPacket packet)
     {
-        var send = Deser.SerJson(packet);
-        Console.WriteLine($"Попытка отправить пакет типа {packet.Type}");
-        Console.WriteLine($"JSON: {send}");
-        await _writer.WriteLineAsync(send);
-        Console.WriteLine("Пакет ушел!");
+        Console.WriteLine($"[TRACK 1] Начинаю отправку пакета Type: {packet.Type}");
+        try
+        {
+            var send = Deser.SerJson(packet);
+            Console.WriteLine($"[TRACK 2] Сериализация успешна: {send}");
+
+            if (_writer == null)
+            {
+                Console.WriteLine("[TRACK ERROR] СТОП! _writer равен null!");
+                return;
+            }
+
+            Console.WriteLine("[TRACK 3] Вызываю _writer.WriteLineAsync...");
+            await _writer.WriteLineAsync(send);
+
+            Console.WriteLine("[TRACK 4] Вызываю _writer.FlushAsync()...");
+            await _writer.FlushAsync();
+
+            Console.WriteLine($"[TRACK 5] Пакет Type: {packet.Type} физически ушел в ОС!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TRACK CRASH] Ошибка в SendPacket: {ex.Message}");
+        }
     }
     public async Task<bool> RegisterAsync(RegisterPayload registerPayload)
     {
