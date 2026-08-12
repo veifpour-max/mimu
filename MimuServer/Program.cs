@@ -149,11 +149,14 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         {
 
             var received = await reader.ReadLineAsync();
+            if (received == null)
+            {
+                break;
+            }
             if (string.IsNullOrWhiteSpace(received))
             {
                 continue;
             }
-            if (received == null) break;
             var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
             if (msg == null)
             {
@@ -271,7 +274,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 await connetion.SendAsync(desering);
                 Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
             }
-            else if(msg != null && msg.Type == PacketType.RequestDownloadUrl)
+            else if (msg != null && msg.Type == PacketType.RequestDownloadUrl)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var url = _minio.GetDownloadUrl(msg.PayLoad);
