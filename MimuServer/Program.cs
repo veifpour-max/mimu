@@ -64,10 +64,12 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
         try
         {
             var received = await reader.ReadLineAsync();
+            if (received == null) break;
             if (string.IsNullOrWhiteSpace(received))
             {
                 continue;
             }
+
             var authPacket = JsonSerializer.Deserialize<NetworkPacket>(received);
 
             if (authPacket != null && authPacket.Type == PacketType.Auth)
