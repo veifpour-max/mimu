@@ -14,7 +14,8 @@ public enum PacketType
     Pong,
     MessageDelivered,
     GetPublicKey,
-    RequestUploadUrl
+    RequestUploadUrl,
+    RequestDownloadUrl
 }
 
 public class NetworkPacket

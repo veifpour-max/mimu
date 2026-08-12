@@ -271,6 +271,16 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 await connetion.SendAsync(desering);
                 Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
             }
+            else if(msg != null && msg.Type == PacketType.RequestDownloadUrl)
+            {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
+                var url = _minio.GetDownloadUrl(msg.PayLoad);
+                Console.WriteLine($"url сгенерирован! {url}");
+                var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
+                var sering = Deser.SerJson(send);
+                await connetion.SendAsync(sering);
+                Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
+            }
 
         }
         catch

@@ -159,7 +159,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
                         StatusMessage = "Загрузка файла в MinIO...";
                         using var http = new HttpClient();
-                        var responseHttp = await http.PutAsync(url, content);
+                        http.DefaultRequestHeaders.ExpectContinue = false;
+
+                        var request = new HttpRequestMessage(HttpMethod.Put, url);
+                        request.Content = new ByteArrayContent(contentBytes);
+                        request.Content.Headers.ContentType = null;
+
+                        var responseHttp = await http.SendAsync(request);
 
                         if (responseHttp.IsSuccessStatusCode)
                         {

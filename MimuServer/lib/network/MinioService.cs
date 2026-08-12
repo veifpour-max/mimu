@@ -16,4 +16,11 @@ public class MinioService
         var url = await minio.PresignedPutObjectAsync(args);     
         return url;
     }
+
+    public async Task<string?> GetDownloadUrl(string filename)
+    {
+        var args = new PresignedGetObjectArgs().WithBucket("mimu-bucket").WithObject(filename).WithExpiry(300);
+        var url = await minio.PresignedGetObjectAsync(args);
+        return url;
+    }
 }
