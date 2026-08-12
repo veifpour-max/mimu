@@ -169,6 +169,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
                         if (responseHttp.IsSuccessStatusCode)
                         {
+                            var originalFileName = Path.GetFileName(filePath);
                             StatusMessage = "Файл успешно отправлен!";
                             var msg = new Message(filename, _myId, SelectedUser.Id, MessageType.File);
                             var originalText = filename;
