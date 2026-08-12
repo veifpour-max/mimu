@@ -4,7 +4,7 @@ using LocalMimu.Models;
 
 namespace LocalMimu.Models;
 
-public enum MessageType { Text }
+public enum MessageType { Text, Photo, Video, Audio, RoundVideo, VoiceMessages, File }
 
 public class Message : INotifyPropertyChanged
 {

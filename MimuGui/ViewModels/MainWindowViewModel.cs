@@ -107,66 +107,93 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusMessage = "Сбой крипто-движка";
                     return;
                 }
-                StatusMessage = "1 условие пройдено";
-                if (SelectedUser == null || string.IsNullOrWhiteSpace(SelectedUser.PublicKey))
+                try
                 {
-                    StatusMessage = "У собеседника нет ключа!";
+                    StatusMessage = "1 условие пройдено";
+                    if (SelectedUser == null || string.IsNullOrWhiteSpace(SelectedUser.PublicKey))
+                    {
+                        StatusMessage = "У собеседника нет ключа!";
+                    }
+                    StatusMessage = "2 условие пройдено";
+
+                    if (_crypto != null && SelectedUser?.PublicKey != null)
+                    {
+                        var sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+
+                        FileInfo fi = new FileInfo(filePath);
+                        if (fi.Length > 5242880)
+                        {
+                            StatusMessage = "Твой файл слишком большой!";
+                            return;
+                        }
+                        var filename = Guid.NewGuid().ToString() + ".enc";
+                        var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
+                        StatusMessage = "Попытка связаться с сервером";
+                        StatusMessage = "Запрос ссылки у сервера...";
+
+                        StatusMessage = $"Отправил пакет. Жду ответ...";
+                        var response = await _net.SendAndWaitAsync(networkPacket);
+                        StatusMessage = $"Получен ответ: {response?.Length ?? 0} символов";
+
+                        if (string.IsNullOrEmpty(response))
+                        {
+                            StatusMessage = "Сервер промолчал!";
+                            return;
+                        }
+
+                        if (response == null || !response.StartsWith("http") || string.IsNullOrEmpty(response))
+                        {
+                            StatusMessage = "Сервер не дал ссылку на загрузку";
+                            return;
+                        }
+
+                        string url = response;
+                        StatusMessage = "Ссылка получена! Шифрую файл...";
+
+                        byte[] bytesOfFile = File.ReadAllBytes(filePath);
+                        var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
+                        var seringIntoJson = Deser.SerJson(encryptedPayload);
+
+                        byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(seringIntoJson);
+                        using ByteArrayContent content = new ByteArrayContent(contentBytes);
+
+                        StatusMessage = "Загрузка файла в MinIO...";
+                        using var http = new HttpClient();
+                        var responseHttp = await http.PutAsync(url, content);
+
+                        if (responseHttp.IsSuccessStatusCode)
+                        {
+                            StatusMessage = "Файл успешно отправлен!";
+                            var msg = new Message(filename, _myId, SelectedUser.Id, MessageType.File);
+                            var originalText = filename;
+
+                            if(_crypto != null)
+                            {
+                                var encryptedBytes = _crypto.Encrypt(filename, sharedSecret);
+                                msg.Text = Deser.SerJson(encryptedBytes);
+                            }
+                            await _localMessages.SaveMessagesAsync(msg);
+                            var serMsg = Deser.SerJson(msg);
+                            var packet = new NetworkPacket(PacketType.ChatMessage, serMsg);
+                            var displayMsg = new Message(originalText, _myId, SelectedUser.Id, MessageType.File);
+                            // память не подводит
+                            await _net.SendPacket(packet);
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                ChatMessages.Add(displayMsg);
+                                NewMessageText = "";
+                            });
+
+                        }
+                        else
+                        {
+                            StatusMessage = $"Ошибка HTTP: {responseHttp.StatusCode}";
+                        }
+                    }
                 }
-                StatusMessage = "2 условие пройдено";
-
-                if (_crypto != null && SelectedUser?.PublicKey != null)
+                catch (Exception ex)
                 {
-                    var sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
-
-                    FileInfo fi = new FileInfo(filePath);
-                    if (fi.Length > 5242880)
-                    {
-                        StatusMessage = "Твой файл слишком большой!";
-                        return;
-                    }
-                    var filename = Guid.NewGuid().ToString() + ".enc";
-                    var networkPacket = new NetworkPacket(PacketType.RequestUploadUrl, filename);
-                    StatusMessage = "Попытка связаться с сервером";
-                    StatusMessage = "Запрос ссылки у сервера...";
-
-                    var responseJson = await _net.SendAndWaitAsync(networkPacket);
-
-                    if (string.IsNullOrEmpty(responseJson))
-                    {
-                        StatusMessage = "Сервер промолчал!";
-                        return;
-                    }
-
-                    var response = Deser.DeserJson<NetworkPacket>(responseJson);
-                    if (response == null || string.IsNullOrEmpty(response.PayLoad))
-                    {
-                        StatusMessage = "Сервер не дал ссылку на загрузку";
-                        return;
-                    }
-
-                    string url = response.PayLoad;
-                    StatusMessage = "Ссылка получена! Шифрую файл...";
-
-                    byte[] bytesOfFile = File.ReadAllBytes(filePath);
-                    var encryptedPayload = _crypto.EncryptBytes(bytesOfFile, sharedSecret);
-                    var seringIntoJson = Deser.SerJson(encryptedPayload);
-
-                    byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(seringIntoJson);
-                    using ByteArrayContent content = new ByteArrayContent(contentBytes);
-                    content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
-
-                    StatusMessage = "Загрузка файла в MinIO...";
-                    using var http = new HttpClient();
-                    var responseHttp = await http.PutAsync(url, content);
-
-                    if (responseHttp.IsSuccessStatusCode)
-                    {
-                        StatusMessage = "Файл успешно отправлен!";
-                    }
-                    else
-                    {
-                        StatusMessage = $"Ошибка HTTP: {responseHttp.StatusCode}";
-                    }
+                    StatusMessage = $"{ex.Message}";
                 }
 
 
