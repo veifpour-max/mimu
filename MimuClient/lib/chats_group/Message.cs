@@ -17,6 +17,45 @@ public class Message : INotifyPropertyChanged
     public string? SenderUsername { get; set; }
     public Guid Id { get; set; }
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string DisplayText
+    {
+        get
+        {
+            if (Type == MessageType.File && Text.Contains("|"))
+            {
+                var returning = Text.Split("|");
+                return returning[1];
+            }
+            else
+            {
+                return Text;
+            }
+        }
+        set
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayText)));
+        }
+    }
+    public string FileKey
+    {
+        get
+        {
+            if (Type == MessageType.File && Text.Contains("|"))
+            {
+                string[]? textToReturn = Text.Split("|");
+                return textToReturn[0];
+            }
+            else
+            {
+                return Text;
+            }
+        }
+        set
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayText)));
+        }
+    }
     public MessageStatus Status
     {
         get => _Status;

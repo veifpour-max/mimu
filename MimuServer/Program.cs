@@ -279,7 +279,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             else if (msg != null && msg.Type == PacketType.RequestDownloadUrl)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
-                var url = _minio.GetDownloadUrl(msg.PayLoad);
+                var url = await _minio.GetDownloadUrl(msg.PayLoad);
                 Console.WriteLine($"url сгенерирован! {url}");
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
                 var sering = Deser.SerJson(send);

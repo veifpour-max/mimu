@@ -15,6 +15,9 @@ using Avalonia.Input;
 using LocalMimu.Models;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
+using Avalonia.Interactivity;
+using Avalonia.Utilities;
+
 
 namespace MimuGui.Views;
 
@@ -26,7 +29,7 @@ public partial class MainWindow : Window
     {
         _vm = new MainWindowViewModel();
         _vm.StorageService = new WindowStorageService(this);
-        if(_vm.StorageService == null)
+        if (_vm.StorageService == null)
         {
             Console.WriteLine("Иньекция НЕ прошла");
         }
@@ -34,10 +37,9 @@ public partial class MainWindow : Window
         {
             Console.WriteLine("Иньекция успешна");
         }
-        _vm.AttachButtonText = $"📎 {_vm.InstanceId.ToString().Substring(0,4)}";
+        _vm.AttachButtonText = $"📎 {_vm.InstanceId.ToString().Substring(0, 4)}";
         DataContext = _vm;
         BuildUI();
-        _vm.StatusMessage = $"[MAINWINDOW] Я создал ViewModel с ID: {_vm.InstanceId.ToString().Substring(0,8)}";
         _vm.ChatMessages.CollectionChanged += (s, e) =>
         {
             if (_vm.ChatMessages.Count == 0) return;
@@ -66,7 +68,7 @@ public partial class MainWindow : Window
                 Title = "Выберите файл для отправки",
                 AllowMultiple = false
             });
-            if(files.Count >= 1)
+            if (files.Count >= 1)
             {
                 return files[0].TryGetLocalPath();
             }
@@ -86,6 +88,25 @@ public partial class MainWindow : Window
 
             ItemTemplate = new FuncDataTemplate<Message>((msg, namescope) =>
             {
+                var downloadBtn = new Button()
+                {
+                    Content = "Скачать",
+                    Background = Brush.Parse("#3478F6"),
+                    Foreground = Brushes.White,
+                    Margin = Avalonia.Thickness.Parse("0, 5, 0, 0"),
+                    CornerRadius = new Avalonia.CornerRadius(5),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    [!Button.IsVisibleProperty] = new Binding("Type")
+                    {
+                        Converter = new Avalonia.Data.Converters.FuncValueConverter<MessageType, bool>(type => type == MessageType.File)
+                    }
+                };
+
+                downloadBtn.Click += (sender, e) =>
+                {
+                    _ = _vm.DownloadFileAsync(msg);
+                };
+
                 return new Border()
                 {
                     [!Border.BackgroundProperty] = new Binding("SenderID") { Converter = new BubbleColorConverter(_vm) },
@@ -98,26 +119,27 @@ public partial class MainWindow : Window
                         Spacing = 4,
                         Children =
                         {
-                            new TextBlock()
-                            {
-                                [!TextBlock.TextProperty] = new Binding("Text"),
-                                Foreground = Brushes.White,
-                                TextWrapping = TextWrapping.Wrap
-                            },
-                            new TextBlock()
-                            {
-                                [!TextBlock.TextProperty] = new Binding("SentAt") {Converter = new TimeConverter()},
-                                FontSize = 10,
-                                Foreground = Brush.Parse("#A0a0a0"),
-                                HorizontalAlignment = HorizontalAlignment.Right,
-                            },
-                            new TextBlock()
-                            {
-                                [!TextBlock.TextProperty] = new Binding("Status") {Converter = new StatusConverter()},
-                                FontSize = 10,
-                                Foreground = Brush.Parse("#888888"),
-                                VerticalAlignment = VerticalAlignment.Center
-                            }
+                    new TextBlock()
+                    {
+                        [!TextBlock.TextProperty] = new Binding("DisplayText"),
+                        Foreground = Brushes.White,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock()
+                    {
+                        [!TextBlock.TextProperty] = new Binding("SentAt") {Converter = new TimeConverter()},
+                        FontSize = 10,
+                        Foreground = Brush.Parse("#A0a0a0"),
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                    },
+                    new TextBlock()
+                    {
+                        [!TextBlock.TextProperty] = new Binding("Status") {Converter = new StatusConverter()},
+                        FontSize = 10,
+                        Foreground = Brush.Parse("#888888"),
+                        VerticalAlignment = VerticalAlignment.Center
+                    },
+                    downloadBtn
                         }
                     }
                 };

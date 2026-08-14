@@ -17,6 +17,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using SQLitePCL;
+using Minio.DataModel.ILM;
 
 namespace MimuGui.ViewModels;
 
@@ -77,6 +78,50 @@ public partial class MainWindowViewModel : ViewModelBase
                 throw;
             }
         }
+    }
+
+    public async Task DownloadFileAsync(Message msg)
+    {
+        var askForUrl = new NetworkPacket(PacketType.RequestDownloadUrl, msg.FileKey);
+        var send = await _net.SendAndWaitAsync(askForUrl);
+        string? url = null;
+        try
+        {
+            url = Deser.DeserJson<string?>(send);
+        }
+        catch
+        {
+            url = send;
+        }
+        // check block
+        if (url != null && url.StartsWith("http"))
+        {
+            using var http = new HttpClient();
+            var answer = await http.GetAsync(url);
+            var encryptedBytes = await answer.Content.ReadAsByteArrayAsync();
+
+            if(answer.IsSuccessStatusCode)
+            {
+                var jsonPayload = System.Text.Encoding.UTF8.GetString(encryptedBytes);
+                var encryptPayload = Deser.DeserJson<EncryptedPayload?>(jsonPayload);
+                if(encryptPayload != null && _crypto != null && SelectedUser?.PublicKey != null)
+                {
+                    byte[] sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
+                    byte[] decryptBytes = _crypto.DecryptBytesToBytes(encryptPayload, sharedSecret);
+
+                    string downloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Download");
+                    string finalPath = Path.Combine(downloadPath, msg.DisplayText);
+                    await File.WriteAllBytesAsync(finalPath, decryptBytes);
+                    StatusMessage = $"Файл сохранен в папку {finalPath}";
+                }
+
+            }
+            
+
+            
+        }
+
+
     }
 
     public async Task OnAttachClick()
@@ -171,19 +216,19 @@ public partial class MainWindowViewModel : ViewModelBase
                         {
                             var originalFileName = Path.GetFileName(filePath);
                             StatusMessage = "Файл успешно отправлен!";
+                            var fileMeta = string.Join("|", filename, originalFileName);
                             var msg = new Message(filename, _myId, SelectedUser.Id, MessageType.File);
-                            var originalText = filename;
+                            var originalText = fileMeta;
 
-                            if(_crypto != null)
+                            if (_crypto != null)
                             {
-                                var encryptedBytes = _crypto.Encrypt(filename, sharedSecret);
+                                var encryptedBytes = _crypto.Encrypt(fileMeta, sharedSecret);
                                 msg.Text = Deser.SerJson(encryptedBytes);
                             }
                             await _localMessages.SaveMessagesAsync(msg);
                             var serMsg = Deser.SerJson(msg);
                             var packet = new NetworkPacket(PacketType.ChatMessage, serMsg);
                             var displayMsg = new Message(originalText, _myId, SelectedUser.Id, MessageType.File);
-                            // память не подводит
                             await _net.SendPacket(packet);
                             Dispatcher.UIThread.Post(() =>
                             {
