@@ -18,6 +18,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using SQLitePCL;
 using Minio.DataModel.ILM;
+using System.Xml;
 
 namespace MimuGui.ViewModels;
 
@@ -82,46 +83,85 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task DownloadFileAsync(Message msg)
     {
-        var askForUrl = new NetworkPacket(PacketType.RequestDownloadUrl, msg.FileKey);
-        var send = await _net.SendAndWaitAsync(askForUrl);
-        string? url = null;
+        Console.WriteLine("[DEBUG-1] Вход в метод DownloadFileAsync");
         try
         {
-            url = Deser.DeserJson<string?>(send);
-        }
-        catch
-        {
-            url = send;
-        }
-        // check block
-        if (url != null && url.StartsWith("http"))
-        {
-            using var http = new HttpClient();
-            var answer = await http.GetAsync(url);
-            var encryptedBytes = await answer.Content.ReadAsByteArrayAsync();
+            Dispatcher.UIThread.Post(() => StatusMessage = "Запрашиваю ссылку");
+            Console.WriteLine("[DEBUG-2] Отправка RequestDownloadUrl");
+            var askForUrl = new NetworkPacket(PacketType.RequestDownloadUrl, msg.FileKey);
 
-            if(answer.IsSuccessStatusCode)
+            string url = await _net.SendAndWaitAsync(askForUrl);
+            Console.WriteLine("[DEBUG-3] Получен ответ от сервера");
+
+            if (url.StartsWith("\"") && url.EndsWith("\""))
             {
-                var jsonPayload = System.Text.Encoding.UTF8.GetString(encryptedBytes);
-                var encryptPayload = Deser.DeserJson<EncryptedPayload?>(jsonPayload);
-                if(encryptPayload != null && _crypto != null && SelectedUser?.PublicKey != null)
-                {
-                    byte[] sharedSecret = _crypto.GetSharedSecret(SelectedUser.PublicKey);
-                    byte[] decryptBytes = _crypto.DecryptBytesToBytes(encryptPayload, sharedSecret);
-
-                    string downloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Download");
-                    string finalPath = Path.Combine(downloadPath, msg.DisplayText);
-                    await File.WriteAllBytesAsync(finalPath, decryptBytes);
-                    StatusMessage = $"Файл сохранен в папку {finalPath}";
-                }
-
+                url = url.Substring(1, url.Length - 2);
             }
-            
+            url = url.Replace("\\u0026", "&");
 
-            
+            Console.WriteLine($"Итоговый URL: {url}");
+
+            if (url.StartsWith("http"))
+            {
+                Dispatcher.UIThread.Post(() => StatusMessage = "Качаю файл из MinIO...");
+                using var http = new HttpClient();
+                Console.WriteLine("[DEBUG-4] Вызываю http.GetAsync...");
+                var answer = await http.GetAsync(url);
+
+                if (!answer.IsSuccessStatusCode)
+                {
+                    var error = await answer.Content.ReadAsStringAsync();
+                    Dispatcher.UIThread.Post(() => StatusMessage = $"Ошибка скачивания: {answer.StatusCode}");
+                    Console.WriteLine($"[MinIO]: {error}");
+                    return;
+                }
+                Console.WriteLine("[DEBUG-6] Читаю байты...");
+                var encryptedBytes = await answer.Content.ReadAsByteArrayAsync();
+                Dispatcher.UIThread.Post(() => StatusMessage = "Расшифровываю");
+                Console.WriteLine($"[DEBUG-7] Скачано {encryptedBytes.Length} байт. Десериализация...");
+
+                var jsonPayload = System.Text.Encoding.UTF8.GetString(encryptedBytes);
+                var encryptedPayload = Deser.DeserJson<EncryptedPayload>(jsonPayload);
+
+                Console.WriteLine("[DEBUG-8] Десериализация успешна. Поиск собеседника по ID...");
+                Guid targetId = (msg.SenderID == _myId) ? msg.ReceiverID : msg.SenderID;
+                var chatUser = ActiveChats.FirstOrDefault(u => u.Id == targetId);
+
+                if (chatUser != null && string.IsNullOrEmpty(chatUser?.PublicKey))
+                {
+                    Console.WriteLine("[DEBUG-8.5] Ключа нет! Запрашиваю у сервера...");
+                    await FetchPublicKeyAsync(chatUser);
+                }
+                if (encryptedPayload != null && _crypto != null && chatUser != null && !string.IsNullOrEmpty(chatUser.PublicKey))
+                {
+                    Console.WriteLine("[DEBUG-9] Ключи есть. Расшифровка...");
+                    byte[] sharedSecret = _crypto.GetSharedSecret(chatUser.PublicKey);
+                    byte[] decryptedBytes = _crypto.DecryptBytesToBytes(encryptedPayload, sharedSecret);
+
+                    Console.WriteLine("[DEBUG-10] Расшифровано. Пишу на диск...");
+                    string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                    string finalPath = Path.Combine(downloadsPath, msg.DisplayText);
+
+                    await File.WriteAllBytesAsync(finalPath, decryptedBytes);
+                    Console.WriteLine($"[DEBUG-11] ГОТОВО! Файл сохранен: {finalPath}");
+                    Dispatcher.UIThread.Post(() => StatusMessage = $"Успех! Файл в Загрузках");
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG-ERROR] payload={encryptedPayload != null}, _crypto={_crypto != null}, chatUser={chatUser != null}");
+                    Dispatcher.UIThread.Post(() => StatusMessage = "Сбой расшифровки!");
+                }
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(() => StatusMessage = "Сервер прислал кривую ссылку!");
+            }
         }
-
-
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DOWNLOAD CRASH]: {ex}");
+            Dispatcher.UIThread.Post(() => StatusMessage = $"Критический сбой: {ex.Message}");
+        }
     }
 
     public async Task OnAttachClick()

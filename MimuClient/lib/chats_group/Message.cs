@@ -8,12 +8,27 @@ public enum MessageType { Text, Photo, Video, Audio, RoundVideo, VoiceMessages, 
 
 public class Message : INotifyPropertyChanged
 {
-    public string? Text { get; set; }
+    public string? Text
+    {
+        get => _text;
+        set
+        {
+            _text = value;
+
+            if (_text != null && _text.Contains(".enc|"))
+            {
+                Type = MessageType.File;
+            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayText)));
+        }
+    }
     public Guid SenderID { get; set; }
     public DateTime SentAt { get; set; }
     public MessageStatus _Status { get; set; }
     public Guid ReceiverID { get; set; }
     public MessageType Type { get; set; }
+    private string? _text;
     public string? SenderUsername { get; set; }
     public Guid Id { get; set; }
     public event PropertyChangedEventHandler? PropertyChanged;
