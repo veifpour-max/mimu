@@ -496,6 +496,10 @@ public partial class MainWindow : Window
                                         new Button()
                                         {
                                             [Grid.ColumnProperty] = 0,
+                                            [!Button.IsEnabledProperty] = new Binding(nameof(MainWindowViewModel.IsUploading))
+                                            {
+                                                Converter = new FuncValueConverter<bool, bool>(isUp => !isUp)
+                                            },
                                             [!Button.ContentProperty] = new Binding(nameof(MainWindowViewModel.AttachButtonText)),
                                             [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.OnAttachClick))
                                         }

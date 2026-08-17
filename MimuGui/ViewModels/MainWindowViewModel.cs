@@ -166,6 +166,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task OnAttachClick()
     {
+        if (IsUploading)
+        {
+            return;
+        }
+        IsUploading = true;
+        try
+        {
         StatusMessage = "Открытие файлов...";
 
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -301,6 +308,12 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
     }
+        finally
+        {
+            IsUploading = false;
+        }
+    }
+
 
 
     private async void HandleStatusChanged(Guid msgId, MessageStatus newStatus)
@@ -437,6 +450,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isRegisterVisible = false;
     public bool isSearchVisible = false;
     private string _search;
+
+    private bool _isUploading;
     private string _newMessageText;
     private IBrush indicator = Brushes.Gray;
     private string? indicatorText = "Ожидание...";
@@ -448,6 +463,12 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         get => _username;
         set => SetProperty(ref _username, value);
+    }
+
+    public bool IsUploading
+    {
+        get => _isUploading;
+        set => SetProperty(ref _isUploading, value);
     }
 
     public Guid MyId => _myId;
