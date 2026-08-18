@@ -135,6 +135,10 @@ public partial class MainWindow : Window
                     new TextBlock()
                     {
                         [!TextBlock.TextProperty] = new Binding("Status") {Converter = new StatusConverter()},
+                        [!TextBlock.IsVisibleProperty] = new Binding("SenderID")
+{
+    Converter = new Avalonia.Data.Converters.FuncValueConverter<Guid, bool>(id => id == _vm.MyId)
+},
                         FontSize = 10,
                         Foreground = Brush.Parse("#888888"),
                         VerticalAlignment = VerticalAlignment.Center
