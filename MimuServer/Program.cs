@@ -35,7 +35,7 @@ while (true)
 {
     TcpClient client = await server.AcceptTcpClientAsync();
 
-    Console.WriteLine("[Server] Клиент подключен!");
+    Console.WriteLine($"[Server] Клиент подключен! Его айпи: {((System.Net.IPEndPoint)client.Client.RemoteEndPoint).Address}");
     _ = HandleClientAsync(client, msgRepo);
 
 }
