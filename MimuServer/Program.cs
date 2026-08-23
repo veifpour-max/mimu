@@ -172,7 +172,11 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine($"Сервер получил чат-пакет {msg.Type} | Перессылка.");
                 var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
-
+                if (finalMsg == null || finalMsg.SenderID != assignedId)
+                {
+                    Console.WriteLine($"[SECURITY] {assignedId} прислал чужой SenderID ({finalMsg?.SenderID}). Пакет отброшен.");
+                    continue;
+                }
                 var sender = await repo.GetUserById(finalMsg.SenderID);
                 finalMsg.SenderUsername = sender != null ? sender.Username : "Unknown";
                 var finalAnswermsg = Deser.SerJson(finalMsg);
@@ -186,6 +190,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             else if (msg != null && msg.Type == PacketType.SearchUser)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
+                var makedResult = msg.PayLoad.Split('|');
+                Guid myId = Guid.Parse(makedResult[0]);
+                if (myId != assignedId) continue;
                 var findingTheUser = await repo.FindByUsername(msg.PayLoad);
                 var SearchJson = JsonSerializer.Serialize(findingTheUser);
                 var ServerResponsing = new NetworkPacket(PacketType.ServerResponse, SearchJson);
@@ -256,6 +263,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var id = Guid.Parse(msg.PayLoad);
+                if (id != assignedId) return;
                 var key = await repo.GetPublicKeyAsync(id);
 
                 string answerToSend = string.Join("|", id, key);
