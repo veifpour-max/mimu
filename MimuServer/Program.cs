@@ -12,6 +12,8 @@ using System.Net.Security;
 using System.Data;
 
 ConcurrentDictionary<Guid, ClientConnection> _clients = new();
+ConcurrentDictionary<string, int> _failedAttempts = new();
+ConcurrentDictionary<string, DateTime> _bannedIps = new();
 
 UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
@@ -35,12 +37,26 @@ while (true)
 {
     TcpClient client = await server.AcceptTcpClientAsync();
 
-    Console.WriteLine($"[Server] Клиент подключен! Его айпи: {((System.Net.IPEndPoint)client.Client.RemoteEndPoint).Address}");
+    Console.WriteLine($"[Server] Клиент подключен!");
     _ = HandleClientAsync(client, msgRepo);
 
 }
 async Task HandleClientAsync(TcpClient client, MessagesRepository messagesRepository)
 {
+    string ip = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+    if (_bannedIps.TryGetValue(ip, out DateTime timeNow))
+    {
+        if (DateTime.UtcNow < timeNow)
+        {
+            Console.WriteLine($"Клиент({ip}) был отключен из-за блокировки");
+            client.Close();
+            return;
+        }
+        else
+        {
+            _bannedIps.TryRemove(ip, out _);
+        }
+    }
     var stream = client.GetStream();
     var sslStream = new SslStream(stream, false);
 
@@ -84,6 +100,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var serUser = Deser.SerJson(user);
                     var packet = new NetworkPacket(PacketType.ServerResponse, serUser);
                     var final = Deser.SerJson(packet);
+                    _failedAttempts.TryRemove(ip, out _);
                     await connetion.SendAsync(final);
                     _clients[user.Id] = connetion;
                     assignedId = user.Id;
@@ -93,7 +110,15 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 {
                     var packet = new NetworkPacket(PacketType.ServerResponse, "");
                     var final = Deser.SerJson(packet);
+                    _failedAttempts.AddOrUpdate(ip, 1, (key, oldValue) => oldValue + 1);
                     await connetion.SendAsync(final);
+                    if (_failedAttempts.TryGetValue(ip, out int attempts))
+                    {
+                        if (attempts >= 5)
+                        {
+                            _bannedIps[ip] = DateTime.UtcNow.AddMinutes(15);
+                        }
+                    }
                     Console.WriteLine("Ошибка авторизации: неверный пароль");
                 }
             }
@@ -112,6 +137,19 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     await connetion.SendAsync(jsonAnswer);
                     Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
                     break;
+                }
+                // у нас реально не было else
+                else
+                {
+                    Console.WriteLine($"У Клиента({ip}) произошла ошибка при регистрации.");
+                    _failedAttempts.AddOrUpdate(ip, 1, (key, oldValue) => oldValue + 1);
+                    if (_failedAttempts.TryGetValue(ip, out int attempts))
+                    {
+                        if (attempts >= 5)
+                        {
+                            _bannedIps[ip] = DateTime.UtcNow.AddMinutes(15);
+                        }
+                    }
                 }
 
             }
