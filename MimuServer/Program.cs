@@ -48,7 +48,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
     {
         if (DateTime.UtcNow < timeNow)
         {
-            Console.WriteLine($"Клиент({ip}) был отключен из-за блокировки");
             client.Close();
             return;
         }
@@ -117,6 +116,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                         if (attempts >= 5)
                         {
                             _bannedIps[ip] = DateTime.UtcNow.AddMinutes(15);
+                            Console.WriteLine($"{ip} заблокирован на 15 минут за брутфорс/попытку неправомерного доступа");
                         }
                     }
                     Console.WriteLine("Ошибка авторизации: неверный пароль");
@@ -138,15 +138,14 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
                     break;
                 }
-                // у нас реально не было else
                 else
                 {
-                    Console.WriteLine($"У Клиента({ip}) произошла ошибка при регистрации.");
                     _failedAttempts.AddOrUpdate(ip, 1, (key, oldValue) => oldValue + 1);
                     if (_failedAttempts.TryGetValue(ip, out int attempts))
                     {
                         if (attempts >= 5)
                         {
+                            Console.WriteLine($"{ip} заблокирован на 15 минут за брутфорс/попытку неправомерного доступа");
                             _bannedIps[ip] = DateTime.UtcNow.AddMinutes(15);
                         }
                     }
