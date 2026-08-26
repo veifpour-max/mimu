@@ -229,9 +229,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             else if (msg != null && msg.Type == PacketType.SearchUser)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
-                var makedResult = msg.PayLoad.Split('|');
-                Guid myId = Guid.Parse(makedResult[0]);
-                if (myId != assignedId) continue;
                 var findingTheUser = await repo.FindByUsername(msg.PayLoad);
                 var SearchJson = JsonSerializer.Serialize(findingTheUser);
                 var ServerResponsing = new NetworkPacket(PacketType.ServerResponse, SearchJson);
