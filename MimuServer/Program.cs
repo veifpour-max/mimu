@@ -299,7 +299,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var id = Guid.Parse(msg.PayLoad);
-                if (id != assignedId) return;
                 var key = await repo.GetPublicKeyAsync(id);
 
                 string answerToSend = string.Join("|", id, key);
