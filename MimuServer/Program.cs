@@ -15,7 +15,7 @@ ConcurrentDictionary<Guid, ClientConnection> _clients = new();
 ConcurrentDictionary<string, int> _failedAttempts = new();
 ConcurrentDictionary<string, DateTime> _bannedIps = new();
 
-ServerConfig serverConf = new();
+ServerConfig serverConf = ServerConfigLoader.Load();
 
 UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 

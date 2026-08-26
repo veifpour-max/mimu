@@ -4,7 +4,7 @@ namespace LocalMimu.Models;
 
 public class ServerConfig
 {
-    public int GlobalPort { get; set; } = 443;
+    public int GlobalPort { get; set; } = 8000;
     public string MinioEndpoint { get; set; } = "127.0.0.1:7777";
     public string MinioUser { get; set; } = "your_minio_user";
     public string MinioPass { get; set; } = "your_password";
