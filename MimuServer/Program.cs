@@ -27,7 +27,7 @@ MinioService _minio = new(serverConf);
 
 object _lock = new object();
 
-TcpListener server = new TcpListener(IPAddress.Any, serverConf.GlobalPort);
+TcpListener server = new TcpListener(IPAddress.Any, 8000);
 
 server.Start();
 
