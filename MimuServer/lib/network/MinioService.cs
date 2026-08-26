@@ -12,14 +12,14 @@ public class MinioService
 
     public async Task<string?> GenerateUploadUrl(string fileName, ServerConfig config)
     {
-        var args = new PresignedPutObjectArgs().WithBucket(config.BucketName).WithObject(fileName).WithExpiry(300);
+        var args = new PresignedPutObjectArgs().WithBucket("mimu-bucket").WithObject(fileName).WithExpiry(300);
         var url = await minio.PresignedPutObjectAsync(args);     
         return url;
     }
 
     public async Task<string?> GetDownloadUrl(string filename, ServerConfig config)
     {
-        var args = new PresignedGetObjectArgs().WithBucket(config.BucketName).WithObject(filename).WithExpiry(300);
+        var args = new PresignedGetObjectArgs().WithBucket("mimu-bucket").WithObject(filename).WithExpiry(300);
         var url = await minio.PresignedGetObjectAsync(args);
         return url;
     }
