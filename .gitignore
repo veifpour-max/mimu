@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+serversettings.json
+server.pfx
+
 # dotenv files
 .env
 

@@ -15,17 +15,19 @@ ConcurrentDictionary<Guid, ClientConnection> _clients = new();
 ConcurrentDictionary<string, int> _failedAttempts = new();
 ConcurrentDictionary<string, DateTime> _bannedIps = new();
 
+ServerConfig serverConf = new();
+
 UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
 MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
 
 X509Certificate2 serverCert = new X509Certificate2("server.pfx", "12345");
 
-MinioService _minio = new();
+MinioService _minio = new(serverConf);
 
 object _lock = new object();
 
-TcpListener server = new TcpListener(IPAddress.Any, 8000);
+TcpListener server = new TcpListener(IPAddress.Any, serverConf.GlobalPort);
 
 server.Start();
 
@@ -312,7 +314,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine("Запрос на получение url получен!");
-                var url = await _minio.GenerateUploadUrl(msg.PayLoad);
+                var url = await _minio.GenerateUploadUrl(msg.PayLoad, serverConf);
                 Console.WriteLine($"url сгенерирован! {url}");
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
                 Console.WriteLine("networkpacket сделан!");
@@ -324,7 +326,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             else if (msg != null && msg.Type == PacketType.RequestDownloadUrl)
             {
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
-                var url = await _minio.GetDownloadUrl(msg.PayLoad);
+                var url = await _minio.GetDownloadUrl(msg.PayLoad, serverConf);
                 Console.WriteLine($"url сгенерирован! {url}");
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
                 var sering = Deser.SerJson(send);
