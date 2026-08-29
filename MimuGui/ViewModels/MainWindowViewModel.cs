@@ -960,7 +960,7 @@ public partial class MainWindowViewModel : ViewModelBase
             using var crypto = new CryptoEngine();
             var publicKey = crypto.GetMyPublicKeyBase64();
             var privateKey = crypto.ExportMyPrivateKey();
-            var payload = new RegisterPayload(RegName, RegUsername, RegUsername, publicKey);
+            var payload = new RegisterPayload(RegName, RegUsername, RegPassword, publicKey);
             var success = await _net.RegisterAsync(payload);
             _sessionManager.SavePrivateKey(privateKey);
             if (success)
