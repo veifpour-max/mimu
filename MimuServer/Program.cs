@@ -232,8 +232,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var findingTheUser = await repo.FindByUsername(msg.PayLoad);
                 var SearchJson = JsonSerializer.Serialize(findingTheUser);
                 var ServerResponsing = new NetworkPacket(PacketType.ServerResponse, SearchJson);
+                ServerResponsing.RequestId = msg.RequestId;
                 var finalData = JsonSerializer.Serialize(ServerResponsing);
-
                 await writer.WriteLineAsync(finalData);
                 Console.WriteLine($"Ответ отправлен");
 

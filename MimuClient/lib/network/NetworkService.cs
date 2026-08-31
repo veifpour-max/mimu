@@ -1,6 +1,9 @@
 using System.Net.Sockets;
 using System.Net.Security;
 using System.ComponentModel;
+using System.Collections.Concurrent;
+using System.Formats.Asn1;
+using System.Net.NetworkInformation;
 
 namespace LocalMimu.Models;
 
@@ -15,7 +18,7 @@ public class NetworkService
 
     public event Action<Guid, MessageStatus>? OnMessageStatusChanged;
 
-    private Queue<TaskCompletionSource<string>> _pending = new();
+    ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
 
     public async Task ConnectAsync(string ip, int port)
     {
@@ -33,8 +36,13 @@ public class NetworkService
     }
     private void DisposeOldResources()
     {
-        while (_pending.TryDequeue(out var tcs))
-            tcs.TrySetCanceled();
+       foreach(var kvp in _pendingRequests)
+        {
+            if(_pendingRequests.TryRemove(kvp.Key, out var tcs))
+            {
+                tcs.TrySetCanceled();
+            }
+        }
 
         _writer?.Dispose();
         _reader?.Dispose();
@@ -50,7 +58,7 @@ public class NetworkService
     public async Task<string> SendAndWaitAsync(NetworkPacket packet, int timeout = 10000)
     {
         var tcs = new TaskCompletionSource<string>();
-        lock (_lock) { _pending.Enqueue(tcs); }
+        lock (_lock) { _pendingRequests.TryAdd(packet.RequestId, tcs); }
         await SendPacket(packet);
 
         using var cts = new CancellationTokenSource(timeout);
@@ -58,13 +66,13 @@ public class NetworkService
 
         try
         {
-           return await tcs.Task; 
+            return await tcs.Task;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             throw new Exception($"Сервер не ответил в течении {timeout} мс");
         }
-        
+
     }
     public async Task SendPacket(NetworkPacket packet)
     {
@@ -184,7 +192,8 @@ public class NetworkService
 
                 if (msg != null && msg.Type == PacketType.ServerResponse)
                 {
-                    if (_pending.TryDequeue(out var tcs))
+                    var reqId = msg.RequestId;
+                    if (_pendingRequests.TryRemove(reqId, out var tcs))
                     {
                         tcs.SetResult(msg.PayLoad);
                     }
