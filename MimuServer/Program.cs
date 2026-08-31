@@ -256,6 +256,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 }
                 var jsonList = Deser.SerJson(contactUser);
                 var packet = new NetworkPacket(PacketType.ServerResponse, jsonList);
+                packet.RequestId = msg.RequestId;
                 var finalpacket = Deser.SerJson(packet);
                 await writer.WriteLineAsync(finalpacket);
                 Console.WriteLine($"Отправлен список чатов ({checking.Count} шт.) для {desering}");
@@ -272,6 +273,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var serHistory = Deser.SerJson(history);
 
                 var netPack = new NetworkPacket(PacketType.ServerResponse, serHistory);
+                netPack.RequestId = msg.RequestId;
                 var finalPack = Deser.SerJson(netPack);
 
                 await connetion.SendAsync(finalPack);
@@ -303,6 +305,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 string answerToSend = string.Join("|", id, key);
                 var send = new NetworkPacket(PacketType.ServerResponse, answerToSend);
+                send.RequestId = msg.RequestId;
                 var serSend = Deser.SerJson(send);
                 await connetion.SendAsync(serSend);
             }
