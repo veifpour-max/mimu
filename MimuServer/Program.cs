@@ -316,6 +316,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var url = await _minio.GenerateUploadUrl(msg.PayLoad, serverConf);
                 Console.WriteLine($"url сгенерирован! {url}");
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
+                send.RequestId = msg.RequestId;
                 Console.WriteLine("networkpacket сделан!");
                 var desering = Deser.SerJson(send);
                 Console.WriteLine("networkpacket сериализован");
@@ -328,6 +329,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var url = await _minio.GetDownloadUrl(msg.PayLoad, serverConf);
                 Console.WriteLine($"url сгенерирован! {url}");
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
+                send.RequestId = msg.RequestId;
                 var sering = Deser.SerJson(send);
                 await connetion.SendAsync(sering);
                 Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
