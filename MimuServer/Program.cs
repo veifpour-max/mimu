@@ -17,6 +17,8 @@ ConcurrentDictionary<string, DateTime> _bannedIps = new();
 
 ServerConfig serverConf = ServerConfigLoader.Load();
 
+LimitedReadLine limitedRead = new();
+
 UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
 MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
@@ -80,7 +82,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
         try
         {
-            var received = await reader.ReadLineAsync();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var received = await limitedRead.ReadLineLimitedAsync(reader, cts.Token);
             if (received == null) break;
             if (string.IsNullOrWhiteSpace(received))
             {
@@ -188,8 +191,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
     {
         try
         {
-
-            var received = await reader.ReadLineAsync();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var received = await limitedRead.ReadLineLimitedAsync(reader, cts.Token);
             if (received == null)
             {
                 break;
