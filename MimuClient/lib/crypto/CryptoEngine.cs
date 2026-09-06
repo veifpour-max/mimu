@@ -106,6 +106,12 @@ public class CryptoEngine : IDisposable
 
         return text;
     }
+    public byte[] GenerateSenderKeys()
+    {
+        byte[] senderArray = new byte[32];
+        RandomNumberGenerator.Fill(senderArray);
+        return senderArray;
+    }
 
     public void Dispose()
     {

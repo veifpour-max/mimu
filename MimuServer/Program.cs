@@ -11,9 +11,11 @@ using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.Data;
 
+
 ConcurrentDictionary<Guid, ClientConnection> _clients = new();
 ConcurrentDictionary<string, int> _failedAttempts = new();
 ConcurrentDictionary<string, DateTime> _bannedIps = new();
+ConcurrentDictionary<Guid, GroupChat> _activeGroups = new();
 
 ServerConfig serverConf = ServerConfigLoader.Load();
 
@@ -337,6 +339,38 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 await connetion.SendAsync(sering);
                 Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
             }
+            else if (msg != null && msg.Type == PacketType.CreateGroup)
+            {
+                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
+                var deserializing = Deser.DeserJson<CreateGroupPayload>(msg.PayLoad);
+                var members = deserializing.MemberIds ?? new List<Guid>();
+                if (!members.Contains(assignedId))
+                {
+                    members.Add(assignedId);
+                }
+                var group = new GroupChat() { Id = Guid.NewGuid(), Name = deserializing.GroupName, OwnerId = assignedId, Members = members };
+                Console.WriteLine($"Группа создана! Ее внутренности для дебага: {group}");
+                _activeGroups.TryAdd(group.Id, group);
+                var ser = Deser.SerJson(group);
+                var answering = new NetworkPacket(PacketType.ServerResponse, ser);
+                answering.RequestId = msg.RequestId;
+                var serAnswer = Deser.SerJson(answering);
+                await connetion.SendAsync(serAnswer);
+
+            }
+            else if (msg != null && msg.Type == PacketType.SendingGroupKey)
+            {
+                var payload = Deser.DeserJson<GroupKeyPayload>(msg.PayLoad);
+                if (payload != null && _clients.TryGetValue(payload.TargetUserId, out var targetConn))
+                {
+                    if (targetConn.Client.Connected)
+                    {
+                        var finalJson = Deser.SerJson(msg);
+                        await targetConn.SendAsync(finalJson);
+                    }
+                }
+            }
+
 
         }
         catch
