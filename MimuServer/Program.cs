@@ -304,7 +304,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             else if (msg != null && msg.Type == PacketType.GetPublicKey)
             {
-                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
+                Console.WriteLine($"Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var id = Guid.Parse(msg.PayLoad);
                 var key = await repo.GetPublicKeyAsync(id);
 
@@ -316,8 +316,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             else if (msg != null && msg.Type == PacketType.RequestUploadUrl)
             {
-                Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
-                Console.WriteLine("Запрос на получение url получен!");
+                Console.WriteLine($"Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
+                Console.WriteLine("Запрос на получение url получен");
                 var url = await _minio.GenerateUploadUrl(msg.PayLoad, serverConf);
                 Console.WriteLine($"url сгенерирован! {url}");
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
