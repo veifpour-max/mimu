@@ -829,6 +829,14 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public async Task CreateGroupReq(string GroupName, List<Guid> members)
+    {
+        var createReq = new CreateGroupPayload() {GroupName = GroupName, MemberIds = members, IsGroup = true};
+        var seringReq = Deser.SerJson(createReq);
+        var networkPacket = new NetworkPacket(PacketType.CreateGroup, seringReq);
+        var answer = await _net.SendAndWaitAsync(networkPacket);
+    }
+
     public async void OnLogClicked()
     {
         if (shTools.check(Username) && shTools.check(Password))
