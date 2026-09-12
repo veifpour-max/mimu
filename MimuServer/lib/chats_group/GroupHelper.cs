@@ -18,8 +18,12 @@ public class GroupChat
     public Guid Id {get; set;}
     public string Name {get; set;}
     public Guid OwnerId {get; set;}
-
-    // todo - интегрировать с бд
     public List<Guid> Members {get; set;}
 
+}
+public class GroupMessagePayload
+{
+    public Guid GroupId { get; set; }
+    public Guid SenderId { get; set; } 
+    public string EncryptedText { get; set; } 
 }
