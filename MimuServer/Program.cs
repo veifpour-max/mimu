@@ -10,6 +10,7 @@ using LocalMimu.Repositories;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.Data;
+using System.Text.RegularExpressions;
 
 
 ConcurrentDictionary<Guid, ClientConnection> _clients = new();
@@ -369,6 +370,23 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                         await targetConn.SendAsync(finalJson);
                     }
                 }
+            }
+            else if(msg != null && msg.Type == PacketType.GroupMessage)
+            {
+                var deseredPayload = Deser.DeserJson<GroupMessagePayload>(msg.PayLoad);
+                if(deseredPayload != null && _activeGroups.TryGetValue(deseredPayload.GroupId, out var group))
+                {
+                    var sering = Deser.SerJson(msg);
+                    foreach (var memberId in group.Members)
+                    {
+                        if(memberId == deseredPayload.SenderId) continue;
+                        if(_clients.TryGetValue(memberId, out var conn) && conn.Client.Connected)
+                        {
+                            await conn.SendAsync(sering);
+                        }
+                    }
+                }
+                
             }
 
 
