@@ -373,6 +373,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             else if(msg != null && msg.Type == PacketType.GroupMessage)
             {
+                // still testing
                 var deseredPayload = Deser.DeserJson<GroupMessagePayload>(msg.PayLoad);
                 if(deseredPayload != null && _activeGroups.TryGetValue(deseredPayload.GroupId, out var group))
                 {
