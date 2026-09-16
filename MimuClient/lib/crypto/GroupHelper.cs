@@ -11,6 +11,7 @@ public class GroupKeyPayload
     public Guid GroupId {get; set;}
     public Guid TargetUserId {get; set;}
     public string EncryptedSenderKeyBase64 {get; set;}
+    public Guid SenderId {get; set;}
 }
 
 public class GroupChat
