@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimuServer", "MimuServer\Mi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimuGui", "MimuGui\MimuGui.csproj", "{0B984ACA-E8ED-4C35-821A-2B33B6349901}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimuClient.Tests", "MimuClient.Tests\MimuClient.Tests.csproj", "{E5DD53D8-26A5-451A-B74F-242A37F1572C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{0B984ACA-E8ED-4C35-821A-2B33B6349901}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B984ACA-E8ED-4C35-821A-2B33B6349901}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B984ACA-E8ED-4C35-821A-2B33B6349901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5DD53D8-26A5-451A-B74F-242A37F1572C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5DD53D8-26A5-451A-B74F-242A37F1572C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5DD53D8-26A5-451A-B74F-242A37F1572C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5DD53D8-26A5-451A-B74F-242A37F1572C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
