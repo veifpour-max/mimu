@@ -16,6 +16,8 @@ public class NetworkService
     private bool _isListening = false;
     public event Action<Message>? OnMessageReceived;
 
+    public event Action<GroupKeyPayload>? OnGroupKeyReceived;
+
     public event Action<Guid, MessageStatus>? OnMessageStatusChanged;
 
     ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
@@ -174,8 +176,6 @@ public class NetworkService
                             string ackPayload = $"{finalMsg.Id}|{finalMsg.SenderID}";
                             var ackPacket = new NetworkPacket(PacketType.MessageDelivered, ackPayload);
                             _ = SendPacket(ackPacket);
-                            Console.WriteLine($"\n[{shTools.FormatTime(finalMsg.SentAt)}] | {finalMsg.SenderUsername}: {finalMsg.Text}");
-                            Console.Write("Вы: ");
                         }
                     }
                 }
@@ -201,6 +201,14 @@ public class NetworkService
                 if (msg != null && msg.Type == PacketType.Ping)
                 {
                     await SendPacket(new NetworkPacket(PacketType.Pong, ""));
+                }
+                if(msg != null && msg.Type == PacketType.SendingGroupKey)
+                {
+                    var payload = Deser.DeserJson<GroupKeyPayload>(msg.PayLoad);
+                    if(payload != null)
+                    {
+                        OnGroupKeyReceived?.Invoke(payload);
+                    }
                 }
             }
             catch (Exception ex)
