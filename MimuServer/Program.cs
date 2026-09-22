@@ -85,9 +85,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
             var received = await limitedRead.ReadLineLimitedAsync(reader, cts.Token);
-            // if (received == null) break;
+            if (received == null) break;
             if (string.IsNullOrWhiteSpace(received))
             {
                 continue;
