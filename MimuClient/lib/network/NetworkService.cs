@@ -16,6 +16,8 @@ public class NetworkService
     private bool _isListening = false;
     public event Action<Message>? OnMessageReceived;
 
+    public event Action<GroupMessagePayload>? OnGroupMessageReceived;
+
     public event Action<GroupKeyPayload>? OnGroupKeyReceived;
 
     public event Action<Guid, MessageStatus>? OnMessageStatusChanged;
@@ -38,9 +40,9 @@ public class NetworkService
     }
     private void DisposeOldResources()
     {
-       foreach(var kvp in _pendingRequests)
+        foreach (var kvp in _pendingRequests)
         {
-            if(_pendingRequests.TryRemove(kvp.Key, out var tcs))
+            if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
             {
                 tcs.TrySetCanceled();
             }
@@ -202,14 +204,23 @@ public class NetworkService
                 {
                     await SendPacket(new NetworkPacket(PacketType.Pong, ""));
                 }
-                if(msg != null && msg.Type == PacketType.SendingGroupKey)
+                if (msg != null && msg.Type == PacketType.SendingGroupKey)
                 {
                     var payload = Deser.DeserJson<GroupKeyPayload>(msg.PayLoad);
-                    if(payload != null)
+                    if (payload != null)
                     {
                         OnGroupKeyReceived?.Invoke(payload);
                     }
                 }
+                if (msg != null && msg.Type == PacketType.GroupMessage)
+                {
+                    var payload = Deser.DeserJson<GroupMessagePayload>(msg.PayLoad);
+                    if (payload != null)
+                    {
+                        OnGroupMessageReceived?.Invoke(payload);
+                    }
+                }
+
             }
             catch (Exception ex)
             {
