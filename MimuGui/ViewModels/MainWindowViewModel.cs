@@ -42,6 +42,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _net.OnStateChanged += (state) => StatingConnection(state);
         _net.OnMessageStatusChanged += HandleStatusChanged;
         _net.OnGroupKeyReceived += HandleIncomingGroupKey;
+        _net.OnGroupMessageReceived += HandleGroupMessage;
 
         _ = InitilizeAppAsync();
     }
@@ -841,6 +842,21 @@ public partial class MainWindowViewModel : ViewModelBase
         var deseringAnswer = Deser.DeserJson<GroupChat>(answer);
         await DistributeMySenderKey(deseringAnswer.Id, deseringAnswer.Members);
     }
+
+    public async Task SendGroupMessage(string text, Guid groupId)
+    {
+        byte[]? myKey = _vault.KeyGet(groupId, _myId);
+        EncryptedPayload eP = _crypto.Encrypt(text, myKey);
+        var payload = new GroupMessagePayload
+        {
+            GroupId = groupId,
+            SenderId = _myId,
+            EncryptedText = Deser.SerJson(eP)
+        };
+        var serPayload = Deser.SerJson(payload);
+        var packet = new NetworkPacket(PacketType.GroupMessage, serPayload);
+        await _net.SendPacket(packet);
+    }
     public async Task DistributeMySenderKey(Guid groupId, List<Guid> memberIds)
     {
         byte[] mySenderKey = _crypto.GenerateSenderKeys();
@@ -868,12 +884,18 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
     }
+
+    private async void HandleGroupMessage(GroupMessagePayload msg)
+    {
+        var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.EncryptedText);
+        byte[]? senderKey = _vault.KeyGet(msg.GroupId, msg.SenderId);
+        string plainText = _crypto.Decrypt(encryptedPayload, senderKey);
+    }
     private async void HandleIncomingGroupKey(GroupKeyPayload payload)
     {
         var encryptedKey = Deser.DeserJson<EncryptedPayload>(payload.EncryptedSenderKeyBase64);
         var packet = new NetworkPacket(PacketType.GetPublicKey, payload.SenderId.ToString());
         var answer = await _net.SendAndWaitAsync(packet);
-
 
         var parts = answer.Split('|');
         byte[] sharedSecret = _crypto.GetSharedSecret(parts[1]);
