@@ -164,7 +164,7 @@ public class NetworkService
             {
                 var receivedMsg = await _reader.ReadLineAsync();
                 Console.WriteLine($"[DEBUG] Читаю: {receivedMsg?.Length ?? 0} символов: {receivedMsg}");
-                // if (receivedMsg == null) throw new Exception("Соединение разорвано");
+                if (receivedMsg == null) throw new Exception("Соединение разорвано");
                 var msg = Deser.DeserJson<NetworkPacket>(receivedMsg);
 
                 if (msg != null && msg.Type == PacketType.ChatMessage)
