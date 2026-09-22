@@ -85,7 +85,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             var received = await limitedRead.ReadLineLimitedAsync(reader, cts.Token);
             if (received == null) break;
             if (string.IsNullOrWhiteSpace(received))
@@ -207,7 +207,6 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
             if (msg == null)
             {
-                Console.WriteLine("Десериализация вернула NULL");
                 continue;
             }
             Console.WriteLine($"Прилетел пакет: {(int)msg.Type}");
