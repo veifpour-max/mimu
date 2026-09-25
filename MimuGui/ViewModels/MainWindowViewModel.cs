@@ -85,6 +85,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+
     public async Task DownloadFileAsync(Message msg)
     {
         Console.WriteLine("[DEBUG-1] Вход в метод DownloadFileAsync");
@@ -103,7 +104,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             url = url.Replace("\\u0026", "&");
 
-            Console.WriteLine($"Итоговый URL: {url}");
+            Console.WriteLine($"Итоговый url: {url}");
 
             if (url.StartsWith("http"))
             {
@@ -342,90 +343,60 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task AutoLoginAsync(SessionModel session)
     {
-
         _myId = session.Id;
         StatusMessage = $"Оффлайн режим, {session.Username}";
         IsLoginVisible = false;
 
         var localUsers = await _localMessages.GetLocalUsersAsync();
         ActiveChats.Clear();
-        foreach (var user in localUsers)
+        foreach (var u in localUsers)
         {
-            ActiveChats.Add(user);
+            ActiveChats.Add(u);
         }
 
+        await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
 
-        try
-        {
-            await _net.ConnectAsync(_config.ServerIp, _config.ServerPort);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Не удалось подключиться: {ex.Message}";
-            return;
-        }
-        try
-        {
+        var loginPayload = new LoginPayload(session.Username, session.PasswordHash);
+        var user = await _net.AuthenticateAsync(loginPayload);
 
-            var loginPayload = new LoginPayload(session.Username, session.PasswordHash);
-            try
+        if (user != null)
+        {
+            _myId = user.Id;
+            _net.StartListening();
+
+            var privateKey = _sessionManager.LoadPrivateKey();
+            if (privateKey != null)
             {
-                var user = await _net.AuthenticateAsync(loginPayload);
+                _crypto = new CryptoEngine();
+                _crypto.LoadMyPrivateKey(privateKey);
+            }
+            else throw new Exception("Критическая ошибка! Приватный ключ не найден.");
 
-                if (user != null)
+            var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
+            var chats = Deser.DeserJson<List<User>>(result);
+            if (chats != null)
+            {
+                foreach (var c in chats)
                 {
-                    var privateKey = _sessionManager.LoadPrivateKey();
-                    if (privateKey != null)
+                    if (!ActiveChats.Any(u => u.Id == c.Id))
                     {
-                        _crypto = new CryptoEngine();
-                        _crypto.LoadMyPrivateKey(privateKey);
-                    }
-                    else
-                    {
-                        StatusMessage = $"Критическая ошибка! Приватный ключ не найден. Чат невозможен";
-                    }
-                    _myId = user.Id;
-                    StatusMessage = $"Добро пожаловать обратно, {user.Username}";
-                    _net.StartListening();
-                    IsLoginVisible = false;
-                    IsRegisterVisible = false;
-                    IsMainVisible = true;
-
-                    var result = await _net.SendAndWaitAsync(new NetworkPacket(PacketType.GetChats, _myId.ToString()));
-                    Console.WriteLine("Тест - отправка фейк запроса на url");
-                    var test = new NetworkPacket(PacketType.RequestUploadUrl, "test_file.enc");
-                    var testResponce = await _net.SendAndWaitAsync(test);
-                    Console.WriteLine($"Ответ сервера: {testResponce}");
-                    var chats = Deser.DeserJson<List<User>>(result);
-                    if (chats != null)
-                    {
-                        foreach (var c in chats)
-                        {
-                            if (!ActiveChats.Any(u => u.Id == c.Id))
-                            {
-                                ActiveChats.Add(c);
-                            }
-                        }
-                    }
-                }
-
-                else
-                {
-                    _sessionManager.DeleteSession();
-                    StatusMessage = "Войдите заново. Сессия устарела или потеряна";
+                        ActiveChats.Add(c);
+                    } 
                 }
             }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Не удалось отправить пакет авторизации: {ex.Message}";
-            }
+
+            StatusMessage = $"Добро пожаловать обратно, {user.Username}";
+            IsLoginVisible = false;
+            IsRegisterVisible = false;
+            IsMainVisible = true;
         }
-        catch (Exception ex)
+        else
         {
-            StatusMessage = $"Ошибка авто-входа: {ex.Message}";
-            throw;
+            _sessionManager.DeleteSession();
+            throw new Exception("Не удалось авторизоваться (user == null)");
         }
     }
+
 
     private readonly NetworkService _net = new NetworkService();
     public string Greeting { get; } = "LocalMimu v0.1";
@@ -444,6 +415,18 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         get => _attachButtonText;
         set => SetProperty(ref _attachButtonText, value);
+    }
+    private string _newGroupName = "";
+    public string NewGroupName
+    {
+        get => _newGroupName;
+        set => SetProperty(ref _newGroupName, value);
+    }
+    private bool _isChannel = false;
+    public bool IsChannel
+    {
+        get => _isChannel;
+        set => SetProperty(ref _isChannel, value);
     }
     private bool _isReconnecting = false;
     private bool _isMainVisible = false;
@@ -572,43 +555,45 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task ReconnectLoopAsync()
     {
+        Console.WriteLine("Запуск реконнекта...");
         if (_isReconnecting)
         {
+            Console.WriteLine("Уже реконнектимся");
             return;
         }
-        else if (!_isReconnecting)
-        {
-            _isReconnecting = true;
-        }
+        Console.WriteLine("Цикл 1 пройден");
+
+        _isReconnecting = true;
         int delay = 1000;
-        while (true)
+        Console.WriteLine("Bool пройден");
+
+        while (_isReconnecting)
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                IndicatorColor = Brushes.Yellow;
-            });
+            Console.WriteLine("Вошли в цикл");
+            Dispatcher.UIThread.Post(() => IndicatorColor = Brushes.Yellow);
+            Console.WriteLine("перекрасили");
+
             try
             {
                 var session = _sessionManager.LoadSession();
-                if (session == null)
-                {
-                    break;
-                }
+                Console.WriteLine($"Выгружена сессия: {session.Username}");
+                if (session == null) break;
+                Console.WriteLine($"Сессия != null");
                 await AutoLoginAsync(session);
+                Console.WriteLine($"Запускаем автоконнект");
                 _isReconnecting = false;
+                Console.WriteLine($"Видать успешно, о нет брейк впере..");
                 break;
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Вошли в катч");
+                Console.WriteLine($"Ошибка реконнекта: {ex.Message}");
                 delay *= 2;
-                if (delay > 30000)
-                {
-                    delay = 30000;
-                }
-                Dispatcher.UIThread.Post(() =>
-                {
-                    IndicatorText = $"Переподключение: повтор через {delay / 1000} сек...";
-                });
+                if (delay > 30000) delay = 30000;
+
+                Dispatcher.UIThread.Post(() => IndicatorText = $"Повтор через {delay / 1000} сек...");
+
                 await Task.Delay(delay);
             }
         }
@@ -633,11 +618,11 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         if (states == ConnectionStates.Disconnected)
         {
-            _ = ReconnectLoopAsync();
-            Dispatcher.UIThread.Post(() =>
+            Dispatcher.UIThread.Post(() => IndicatorColor = Brushes.Gray);
+            if (!_isReconnecting)
             {
-                IndicatorColor = Brushes.Gray;
-            });
+                _ = ReconnectLoopAsync();
+            }
         }
     }
 
@@ -841,6 +826,10 @@ public partial class MainWindowViewModel : ViewModelBase
         var answer = await _net.SendAndWaitAsync(networkPacket);
         var deseringAnswer = Deser.DeserJson<GroupChat>(answer);
         await DistributeMySenderKey(deseringAnswer.Id, deseringAnswer.Members);
+    }
+    public void CreateGroupExample()
+    {
+        Console.WriteLine($"Создаю группу: {NewGroupName}");
     }
 
     public async Task SendGroupMessage(string text, Guid groupId)

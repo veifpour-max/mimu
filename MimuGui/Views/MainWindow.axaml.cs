@@ -452,6 +452,50 @@ public partial class MainWindow : Window
                                 }
                             }
                         },
+                                                new Button()
+{
+    Content = "+",
+    Width = 40, Height = 40,
+    CornerRadius = new Avalonia.CornerRadius(20),
+    Background = Brush.Parse("#3478F6"),
+    Foreground = Brushes.White,
+    HorizontalAlignment = HorizontalAlignment.Right,
+    Margin = Avalonia.Thickness.Parse("10"),
+    
+    Flyout = new Flyout()
+    {
+        Content = new StackPanel()
+        {
+            Spacing = 10,
+            Width = 250,
+            Children =
+            {
+                new TextBlock() { Text = "Создать новую группу", FontWeight = FontWeight.Bold },
+
+                new TextBox()
+                {
+                    Watermark = "Название группы",
+                    [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewGroupName)) { Mode = BindingMode.TwoWay }
+                },
+
+                new CheckBox()
+                {
+                    Content = "Это канал?",
+                    [!CheckBox.IsCheckedProperty] = new Binding(nameof(MainWindowViewModel.IsChannel)) { Mode = BindingMode.TwoWay }
+                },
+
+                new Button()
+                {
+                    Content = "Создать",
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    Background = Brush.Parse("#28A745"),
+                    [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.CreateGroupExample))
+                }
+            }
+        }
+    }
+},
                         new Grid()
                         {
                             [Grid.ColumnProperty] = 1,
@@ -513,6 +557,7 @@ public partial class MainWindow : Window
                         }
                     }
                 },
+                
                 new StackPanel()
                 {
                     Orientation = Orientation.Horizontal,
