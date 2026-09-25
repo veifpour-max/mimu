@@ -30,13 +30,24 @@ public class NetworkService
         _isListening = false;
         OnStateChanged?.Invoke(ConnectionStates.Connecting);
         _client = new TcpClient();
-        await _client.ConnectAsync(ip, port);
-        var stream = _client.GetStream();
-        var sslStream = new SslStream(stream, false, (sender, cert, chain, errors) => true);
-        await sslStream.AuthenticateAsClientAsync(ip);
-        OnStateChanged?.Invoke(ConnectionStates.Connected);
-        _reader = new StreamReader(sslStream);
-        _writer = new StreamWriter(sslStream) { AutoFlush = true };
+
+        try
+        {
+            using var cts = new CancellationTokenSource(5000);
+            await _client.ConnectAsync(ip, port).WaitAsync(cts.Token);
+            var stream = _client.GetStream();
+            var sslStream = new SslStream(stream, false, (sender, cert, chain, errors) => true);
+            await sslStream.AuthenticateAsClientAsync(ip).WaitAsync(cts.Token);
+
+            _reader = new StreamReader(sslStream);
+            _writer = new StreamWriter(sslStream) { AutoFlush = true };
+            OnStateChanged?.Invoke(ConnectionStates.Connected);
+        }
+        catch
+        {
+            DisposeOldResources();
+            throw;
+        }
     }
     private void DisposeOldResources()
     {
@@ -125,13 +136,23 @@ public class NetworkService
         return false;
     }
 
-    public async Task<User?> AuthenticateAsync(LoginPayload login)
+    public async Task<User?> AuthenticateAsync(LoginPayload login, int timeout = 10000)
     {
+        if (_writer == null || _reader == null)
+        {
+           throw new Exception("Сокет не инициализирован"); 
+        } 
+        using var cts = new CancellationTokenSource(timeout);
         var loginSer = Deser.SerJson(login);
         var authPacket = new NetworkPacket(PacketType.Auth, loginSer);
         var finalPacket = Deser.SerJson(authPacket);
         await _writer.WriteLineAsync(finalPacket);
-        var waiting = await _reader.ReadLineAsync();
+        var waiting = await _reader.ReadLineAsync(cts.Token);
+
+        if(waiting == null)
+        {
+            throw new Exception("Сервер сбросил соединение");
+        }
 
         if (!shTools.check(waiting))
         {
