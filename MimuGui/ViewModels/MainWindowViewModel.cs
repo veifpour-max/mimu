@@ -85,8 +85,6 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-// empty commit for test
-
 
     public async Task DownloadFileAsync(Message msg)
     {
@@ -383,7 +381,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     if (!ActiveChats.Any(u => u.Id == c.Id))
                     {
                         ActiveChats.Add(c);
-                    } 
+                    }
                 }
             }
 
@@ -410,8 +408,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _regPassword;
     private string _username = "";
     private string _password = "";
+    private string _draftSearch = "";
     public readonly Guid InstanceId = Guid.NewGuid();
-
+    public ObservableCollection<User> DraftedMembers { get; set; } = new();
     private string _attachButtonText = "📎";
     public string AttachButtonText
     {
@@ -430,6 +429,14 @@ public partial class MainWindowViewModel : ViewModelBase
         get => _isChannel;
         set => SetProperty(ref _isChannel, value);
     }
+    public string DraftSearchText
+    {
+        get => _draftSearch;
+        set
+        {
+            SetProperty(ref _draftSearch, value);
+        }
+    }
     private bool _isReconnecting = false;
     private bool _isMainVisible = false;
     private Guid _myId;
@@ -439,7 +446,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isRegisterVisible = false;
     public bool isSearchVisible = false;
     private string _search;
-
+    public bool _isGroupVisible;
     private bool _isUploading;
     private string _newMessageText;
     private IBrush indicator = Brushes.Gray;
@@ -497,6 +504,11 @@ public partial class MainWindowViewModel : ViewModelBase
         get => isSearchVisible;
         set => SetProperty(ref isSearchVisible, value);
     }
+    public bool IsGroupMenuVisible
+    {
+        get => _isGroupVisible;
+        set => SetProperty(ref _isGroupVisible, value);
+    }
     public string StatusMessage
     {
         get => _StatusMessage;
@@ -553,6 +565,45 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         get => _newMessageText;
         set => SetProperty(ref _newMessageText, value);
+    }
+
+    public void ToggleGroupMenu()
+    {
+        IsGroupMenuVisible = !IsGroupMenuVisible;
+    }
+
+    public async Task AddUserToDraftAsync()
+    {
+        if (shTools.check(DraftSearchText))
+        {
+            var packet = new NetworkPacket(PacketType.SearchUser, DraftSearchText);
+
+            FlaggingSearch();
+            var result = await _net.SendAndWaitAsync(packet);
+
+            var desering = Deser.DeserJson<User>(result);
+
+            if (desering != null)
+            {
+                DraftedMembers.Add(desering);
+            }
+            else if (desering == null)
+            {
+                var dummy = new User("Такого польователя не существует", "Никого нет");
+                DraftedMembers.Add(dummy);
+            }
+        }
+    }
+    public async Task CreateGroupCommand()
+    {
+        if (string.IsNullOrWhiteSpace(NewGroupName) || DraftedMembers.Count == 0)
+        {
+            return;
+        }
+        List<Guid> memberIds = DraftedMembers.Select(u => u.Id).ToList();
+        await CreateGroupReq(NewGroupName, memberIds);
+        NewGroupName = "";
+        DraftedMembers.Clear();
     }
 
     private async Task ReconnectLoopAsync()
