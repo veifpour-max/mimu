@@ -20,19 +20,10 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _vm;
 
-    public MainWindow()
+    public MainWindow(MainWindowViewModel viewModel)
     {
-        _vm = new MainWindowViewModel();
+        _vm = viewModel;
         _vm.StorageService = new WindowStorageService(this);
-        if (_vm.StorageService == null)
-        {
-            Console.WriteLine("Иньекция НЕ прошла");
-        }
-        else
-        {
-            Console.WriteLine("Иньекция успешна");
-        }
-        _vm.AttachButtonText = $"📎 {_vm.InstanceId.ToString().Substring(0, 4)}";
         DataContext = _vm;
         BuildUI();
         _vm.ChatMessages.CollectionChanged += (s, e) =>
@@ -97,88 +88,103 @@ public partial class MainWindow : Window
 
     private Control BuildGroupCreationMenu()
     {
-
-        var button = new Button()
+        var closeButton = new Button()
         {
             Width = 30,
-            Background = Brushes.BlueViolet,
-            CornerRadius = Avalonia.CornerRadius.Parse("32"),
-            Content = "+",
-            VerticalContentAlignment = VerticalAlignment.Center,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Bottom,
-            HorizontalAlignment = HorizontalAlignment.Left,
-        };
-        button.Click += (sender, e) =>
-        {
-            if (DataContext is MainWindowViewModel vm)
-            {
-                vm.ToggleGroupMenu();
-            }
+            Height = 30,
+            Content = "×",
+            Background = Brushes.Transparent,
+            Foreground = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.ToggleGroupMenu))
         };
 
-
-        return new StackPanel
+        var content = new StackPanel
         {
-            [!StackPanel.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsGroupMenuVisible)),
             Spacing = 10,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
             Children =
-        {
-            new TextBox
             {
-                Width = 300,
-                Watermark = "Как вы назовете свою группу?",
-                [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewGroupName))
-            },
-            new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 5,
-                Children =
+                new Grid()
                 {
-                    new TextBox
+                    ColumnDefinitions = new ColumnDefinitions("*, Auto"),
+                    Children =
                     {
-                        Width = 220,
-                        Watermark = "Username добавляемого",
-                        [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.DraftSearchText))
-                    },
-                    new Button
-{
-    Content = "Добавить",
-    [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.AddUserToDraftAsync))
-}
-
-                }
-
-            },
-            new ListBox
-            {
-                Width = 300,
-                Height = 150,
-                [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.DraftedMembers)),
-                ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
-                    new Border
-                    {
-                        Padding = Avalonia.Thickness.Parse("5"),
-                        Background = Avalonia.Media.Brushes.DarkGray,
-                        CornerRadius = new Avalonia.CornerRadius(5),
-                        Child = new TextBlock
+                        new TextBlock()
                         {
-                            [!TextBlock.TextProperty] = new Binding("Username")
+                            Text = "Новая группа",
+                            FontSize = 16,
+                            FontWeight = FontWeight.Bold,
+                            Foreground = Brushes.White,
+                            VerticalAlignment = VerticalAlignment.Center
+                        },
+                        closeButton
+                    }
+                },
+                new TextBox
+                {
+                    Width = 300,
+                    Watermark = "Как вы назовете свою группу?",
+                    [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.NewGroupName)) { Mode = BindingMode.TwoWay }
+                },
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 5,
+                    Children =
+                    {
+                        new TextBox
+                        {
+                            Width = 220,
+                            Watermark = "Username добавляемого",
+                            [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.DraftSearchText)) { Mode = BindingMode.TwoWay }
+                        },
+                        new Button
+                        {
+                            Content = "Добавить",
+                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.AddUserToDraftAsync))
                         }
                     }
-                )
-            },
-            new Button
-            {
-                Width = 300,
-                Content = "Создать группу",
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.CreateGroupCommand))
+                },
+                new ListBox
+                {
+                    Width = 300,
+                    Height = 150,
+                    Background = Brushes.Transparent,
+                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.DraftedMembers)),
+                    ItemTemplate = new FuncDataTemplate<User>((user, namescope) =>
+                        new Border
+                        {
+                            Padding = Avalonia.Thickness.Parse("5"),
+                            Background = Avalonia.Media.Brushes.DarkGray,
+                            CornerRadius = new Avalonia.CornerRadius(5),
+                            Child = new TextBlock
+                            {
+                                [!TextBlock.TextProperty] = new Binding("Username")
+                            }
+                        }
+                    )
+                },
+                new Button
+                {
+                    Width = 300,
+                    Content = "Создать группу",
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.CreateGroupCommand))
+                }
             }
-        }
+        };
+
+        return new Border
+        {
+            [!Border.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsGroupMenuVisible)),
+            Background = Brush.Parse("#1E1E1E"),
+            BorderBrush = Brush.Parse("#3478F6"),
+            BorderThickness = new Avalonia.Thickness(1),
+            CornerRadius = new Avalonia.CornerRadius(12),
+            Padding = new Avalonia.Thickness(16),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = content
         };
     }
 
@@ -389,7 +395,7 @@ public partial class MainWindow : Window
                         new Grid()
                         {
                             [Grid.ColumnProperty] = 0,
-                            RowDefinitions = new RowDefinitions("Auto, *"),
+                            RowDefinitions = new RowDefinitions("Auto, Auto, *"),
                             Background = Brush.Parse("#141414"),
                             Children =
                             {
@@ -430,6 +436,79 @@ public partial class MainWindow : Window
                                 new ListBox()
                                 {
                                     [Grid.RowProperty] = 1,
+                                    Background = Brushes.Transparent,
+                                    BorderThickness = new Avalonia.Thickness(0),
+                                    [!ListBox.IsVisibleProperty] = new Binding("Groups.Count")
+                                    {
+                                        Converter = new Avalonia.Data.Converters.FuncValueConverter<int, bool>(count => count > 0)
+                                    },
+                                    Styles =
+                                    {
+                                        new Style(x => x.OfType<ListBoxItem>().Class(":pointerover"))
+                                        { Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) } },
+                                        new Style(x => x.OfType<ListBoxItem>().Class(":selected"))
+                                        { Setters = { new Setter(ListBoxItem.BackgroundProperty, Brush.Parse("#272727")) } }
+                                    },
+                                    [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.Groups)),
+                                    [!ListBox.SelectedItemProperty] = new Binding(nameof(MainWindowViewModel.SelectedGroup)) { Mode = BindingMode.TwoWay },
+                                    ItemTemplate = new FuncDataTemplate<GroupChat>((group, namescope) =>
+                                    {
+                                        return new Border()
+                                        {
+                                            CornerRadius = Avalonia.CornerRadius.Parse("6"),
+                                            Background = Brushes.Transparent,
+                                            Child = new Grid()
+                                            {
+                                                ColumnDefinitions = new ColumnDefinitions("Auto, *"),
+                                                Margin = Avalonia.Thickness.Parse("0,6"),
+                                                Children =
+                                                {
+                                                    new Border()
+                                                    {
+                                                        [Grid.ColumnProperty] = 0,
+                                                        Width = 40,
+                                                        Height = 40,
+                                                        CornerRadius = new Avalonia.CornerRadius(20),
+                                                        Background = Brush.Parse("#3A2F4D"),
+                                                        VerticalAlignment = VerticalAlignment.Center,
+                                                        Margin = Avalonia.Thickness.Parse("0,0,10,0"),
+                                                        Child = new TextBlock()
+                                                        {
+                                                            Text = "👥",
+                                                            HorizontalAlignment = HorizontalAlignment.Center,
+                                                            VerticalAlignment = VerticalAlignment.Center
+                                                        }
+                                                    },
+                                                    new StackPanel()
+                                                    {
+                                                        [Grid.ColumnProperty] = 1,
+                                                        VerticalAlignment = VerticalAlignment.Center,
+                                                        Children =
+                                                        {
+                                                            new TextBlock()
+                                                            {
+                                                                [!TextBlock.TextProperty] = new Binding("Name"),
+                                                                Foreground = Brushes.White,
+                                                                FontWeight = FontWeight.Bold,
+                                                                FontSize = 14,
+                                                                TextTrimming = TextTrimming.CharacterEllipsis
+                                                            },
+                                                            new TextBlock()
+                                                            {
+                                                                Text = "группа",
+                                                                Foreground = Brush.Parse("#888888"),
+                                                                FontSize = 11
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        };
+                                    })
+                                },
+                                new ListBox()
+                                {
+                                    [Grid.RowProperty] = 2,
                                     Background = Brush.Parse("#141414"),
                                     Styles =
                                     {
@@ -513,7 +592,7 @@ public partial class MainWindow : Window
                                 },
                                 new ListBox()
                                 {
-                                    [Grid.RowProperty] = 1,
+                                    [Grid.RowProperty] = 2,
                                     Background = Brush.Parse("#161616"),
                                     [!ListBox.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsSearchVisible)),
                                     [!ListBox.ItemsSourceProperty] = new Binding(nameof(MainWindowViewModel.SearchResult)),
@@ -569,12 +648,44 @@ public partial class MainWindow : Window
                                 {
                                     [Grid.RowProperty] = 0,
                                     Background = Brush.Parse("#1A1A1A"),
-                                    Child = new TextBlock()
+                                    Child = new Grid()
                                     {
-                                        [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.StatusMessage)),
-                                        Foreground = Brushes.White,
-                                        VerticalAlignment = VerticalAlignment.Center,
-                                        Margin = Avalonia.Thickness.Parse("10,0")
+                                        ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                                        Children =
+                                        {
+                                            new StackPanel()
+                                            {
+                                                VerticalAlignment = VerticalAlignment.Center,
+                                                Margin = Avalonia.Thickness.Parse("10,0"),
+                                                Children =
+                                                {
+                                                    new TextBlock()
+                                                    {
+                                                        [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.CurrentChatTitle)),
+                                                        Foreground = Brushes.White,
+                                                        FontWeight = FontWeight.Bold,
+                                                        FontSize = 14,
+                                                        TextTrimming = TextTrimming.CharacterEllipsis
+                                                    },
+                                                    new TextBlock()
+                                                    {
+                                                        [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.CurrentChatSubtitle)),
+                                                        Foreground = Brush.Parse("#888888"),
+                                                        FontSize = 11
+                                                    }
+                                                }
+                                            },
+                                            new TextBlock()
+                                            {
+                                                [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.StatusMessage)),
+                                                Foreground = Brush.Parse("#888888"),
+                                                FontSize = 11,
+                                                VerticalAlignment = VerticalAlignment.Center,
+                                                Margin = Avalonia.Thickness.Parse("10,0"),
+                                                MaxWidth = 320,
+                                                TextTrimming = TextTrimming.CharacterEllipsis
+                                            }
+                                        }
                                     }
                                 },
                                 _chat,
@@ -620,6 +731,7 @@ public partial class MainWindow : Window
                     }
                 },
                 BuildPlusButton(),
+                BuildGroupCreationMenu(),
 
                 new StackPanel()
                 {

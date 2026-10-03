@@ -35,16 +35,37 @@ public class CryptoEngine : IDisposable
         var sharedSecret = _ecdh.DeriveKeyMaterial(tempEcdh.PublicKey);
         return HKDF.DeriveKey(HashAlgorithmName.SHA256, sharedSecret, 32, null, null);
     }
+    private static (byte[] CipherText, byte[] Tag) EncryptCore(byte[] key, byte[] nonce, byte[] plaintext)
+    {
+        if (!ChaCha20Poly1305.IsSupported)
+        {
+            return ManagedChaCha20Poly1305.Encrypt(key, nonce, plaintext);
+        }
+        byte[] cipherText = new byte[plaintext.Length];
+        byte[] tag = new byte[16];
+        using var chacha = new ChaCha20Poly1305(key);
+        chacha.Encrypt(nonce, plaintext, cipherText, tag);
+        return (cipherText, tag);
+    }
+
+    private static byte[] DecryptCore(byte[] key, byte[] nonce, byte[] cipherText, byte[] tag)
+    {
+        if (!ChaCha20Poly1305.IsSupported)
+        {
+            return ManagedChaCha20Poly1305.Decrypt(key, nonce, cipherText, tag);
+        }
+        byte[] text = new byte[cipherText.Length];
+        using var chacha = new ChaCha20Poly1305(key);
+        chacha.Decrypt(nonce, cipherText, tag, text);
+        return text;
+    }
+
     public EncryptedPayload Encrypt(string plainText, byte[] sharedSecret)
     {
         byte[] nonce = new byte[12];
         RandomNumberGenerator.Fill(nonce);
         var plainToUTF8 = System.Text.Encoding.UTF8.GetBytes(plainText);
-        byte[] ChiperText = new byte[plainToUTF8.Length];
-        byte[] Tag = new byte[16];
-
-        ChaCha20Poly1305 chacha = new(sharedSecret);
-        chacha.Encrypt(nonce, plainToUTF8, ChiperText, Tag);
+        var (ChiperText, Tag) = EncryptCore(sharedSecret, nonce, plainToUTF8);
 
         return new EncryptedPayload
         {
@@ -59,9 +80,7 @@ public class CryptoEngine : IDisposable
         var decodeTag = Convert.FromBase64String(e2e.TagBase64);
         var decodeChiperText = Convert.FromBase64String(e2e.ChiperTextBase64);
 
-        byte[] text = new byte[decodeChiperText.Length];
-        ChaCha20Poly1305 cha = new(sharedSecret);
-        cha.Decrypt(decodeNonce, decodeChiperText, decodeTag, text);
+        byte[] text = DecryptCore(sharedSecret, decodeNonce, decodeChiperText, decodeTag);
 
         return System.Text.Encoding.UTF8.GetString(text);
     }
@@ -69,11 +88,7 @@ public class CryptoEngine : IDisposable
     {
         byte[] nonce = new byte[12];
         RandomNumberGenerator.Fill(nonce);
-        byte[] ChiperText = new byte[plainBytes.Length];
-        byte[] Tag = new byte[16];
-
-        ChaCha20Poly1305 chacha = new(sharedSecret);
-        chacha.Encrypt(nonce, plainBytes, ChiperText, Tag);
+        var (ChiperText, Tag) = EncryptCore(sharedSecret, nonce, plainBytes);
 
         return new EncryptedPayload
         {
@@ -88,9 +103,7 @@ public class CryptoEngine : IDisposable
         var decodeTag = Convert.FromBase64String(payload.TagBase64);
         var decodeChiperText = Convert.FromBase64String(payload.ChiperTextBase64);
 
-        byte[] text = new byte[decodeChiperText.Length];
-        ChaCha20Poly1305 cha = new(sharedSecret);
-        cha.Decrypt(decodeNonce, decodeChiperText, decodeTag, text);
+        byte[] text = DecryptCore(sharedSecret, decodeNonce, decodeChiperText, decodeTag);
 
         return System.Text.Encoding.UTF8.GetString(text);
     }
@@ -100,11 +113,7 @@ public class CryptoEngine : IDisposable
         var decodeTag = Convert.FromBase64String(payload.TagBase64);
         var decodeChiperText = Convert.FromBase64String(payload.ChiperTextBase64);
 
-        byte[] text = new byte[decodeChiperText.Length];
-        ChaCha20Poly1305 cha = new(sharedSecret);
-        cha.Decrypt(decodeNonce, decodeChiperText, decodeTag, text);
-
-        return text;
+        return DecryptCore(sharedSecret, decodeNonce, decodeChiperText, decodeTag);
     }
     public byte[] GenerateSenderKeys()
     {
