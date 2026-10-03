@@ -29,7 +29,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly LocalMessagesRepository _localMessages = new();
     private CryptoEngine? _crypto;
     public IStorageService? StorageService { get; set; }
-    public CryptoVaultForKeys _vault { get; set; }
+    public CryptoVaultForKeys _vault { get; set; } = new();
 
 
     public MainWindowViewModel()
@@ -171,6 +171,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task OnAttachClick()
     {
+        if (SelectedGroup != null)
+        {
+            StatusMessage = "Файлы в группах пока не поддерживаются";
+            return;
+        }
         if (IsUploading)
         {
             return;
@@ -454,6 +459,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<User> SearchResult { get; set; } = new();
     public ObservableCollection<User> ActiveChats { get; set; } = new ObservableCollection<User>();
+    public ObservableCollection<GroupChat> Groups { get; } = new();
     public ObservableCollection<Message> ChatMessages { get; } = new ObservableCollection<Message>();
     public string Username
     {
@@ -550,17 +556,54 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedUser, value) && value != null)
             {
+                if (_selectedGroup != null)
+                {
+                    _selectedGroup = null;
+                    OnPropertyChanged(nameof(SelectedGroup));
+                }
                 value.UnreadCount = 0;
                 _ = _localMessages.SaveUserAsync(value);
-                _ = LoadChatHistory(value.Id);
                 if (string.IsNullOrEmpty(value.PublicKey))
                 {
                     _ = PrepareChatAsync(value);
                 }
+                else
+                {
+                    _ = LoadChatHistory(value.Id);
+                }
                 CancelSearch();
+            }
+            OnPropertyChanged(nameof(CurrentChatTitle));
+            OnPropertyChanged(nameof(CurrentChatSubtitle));
+        }
+    }
+
+    private GroupChat? _selectedGroup;
+    public GroupChat? SelectedGroup
+    {
+        get => _selectedGroup;
+        set
+        {
+            if (SetProperty(ref _selectedGroup, value))
+            {
+                if (value != null)
+                {
+                    if (_selectedUser != null)
+                    {
+                        _selectedUser = null;
+                        OnPropertyChanged(nameof(SelectedUser));
+                    }
+                    ChatMessages.Clear();
+                    StatusMessage = $"Группа: {value.Name}";
+                }
+                OnPropertyChanged(nameof(CurrentChatTitle));
+                OnPropertyChanged(nameof(CurrentChatSubtitle));
             }
         }
     }
+
+    public string CurrentChatTitle => SelectedGroup?.Name ?? SelectedUser?.Username ?? "";
+    public string CurrentChatSubtitle => SelectedGroup != null ? "группа" : "";
     public string NewMessageText
     {
         get => _newMessageText;
@@ -585,12 +628,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (desering != null)
             {
-                DraftedMembers.Add(desering);
+                if (DraftedMembers.Any(u => u.Id == desering.Id))
+                {
+                    StatusMessage = "Уже в списке";
+                }
+                else
+                {
+                    DraftedMembers.Add(desering);
+                }
             }
             else if (desering == null)
             {
-                var dummy = new User("Такого польователя не существует", "Никого нет");
-                DraftedMembers.Add(dummy);
+                StatusMessage = "Такого пользователя не существует";
             }
         }
     }
@@ -604,6 +653,7 @@ public partial class MainWindowViewModel : ViewModelBase
         await CreateGroupReq(NewGroupName, memberIds);
         NewGroupName = "";
         DraftedMembers.Clear();
+        IsGroupMenuVisible = false;
     }
 
     private async Task ReconnectLoopAsync()
@@ -878,16 +928,110 @@ public partial class MainWindowViewModel : ViewModelBase
         var networkPacket = new NetworkPacket(PacketType.CreateGroup, seringReq);
         var answer = await _net.SendAndWaitAsync(networkPacket);
         var deseringAnswer = Deser.DeserJson<GroupChat>(answer);
-        await DistributeMySenderKey(deseringAnswer.Id, deseringAnswer.Members);
+        if (deseringAnswer == null)
+        {
+            StatusMessage = "Сервер не смог создать группу";
+            return;
+        }
+        Dispatcher.UIThread.Post(() =>
+        {
+            Groups.Add(deseringAnswer);
+            SelectedGroup = deseringAnswer;
+        });
+        foreach (var memberId in deseringAnswer.Members)
+        {
+            RememberGroupMember(deseringAnswer.Id, memberId);
+        }
+        await DistributeMyGroupKey(deseringAnswer.Id, deseringAnswer.Members);
     }
     public void CreateGroupExample()
     {
         Console.WriteLine($"Создаю группу: {NewGroupName}");
     }
 
-    public async Task SendGroupMessage(string text, Guid groupId)
+    private readonly Dictionary<Guid, byte[]> _myGroupKeys = new();
+    private readonly Dictionary<Guid, HashSet<Guid>> _groupKeySentTo = new();
+    private readonly Dictionary<Guid, HashSet<Guid>> _knownGroupMembers = new();
+
+    private byte[] EnsureMyGroupKey(Guid groupId)
     {
+        if (!_myGroupKeys.TryGetValue(groupId, out var key))
+        {
+            key = _crypto!.GenerateSenderKeys();
+            _myGroupKeys[groupId] = key;
+            _vault.KeyWrite(groupId, _myId, key);
+        }
+        return key;
+    }
+
+    private void RememberGroupMember(Guid groupId, Guid memberId)
+    {
+        if (!_knownGroupMembers.TryGetValue(groupId, out var set))
+        {
+            set = new HashSet<Guid>();
+            _knownGroupMembers[groupId] = set;
+        }
+        set.Add(memberId);
+    }
+
+    // Раздаю свой sender-key: targets == null значит всем известным участникам группы
+    private async Task DistributeMyGroupKey(Guid groupId, List<Guid>? targets = null)
+    {
+        if (_crypto == null)
+        {
+            return;
+        }
+        byte[] mySenderKey = EnsureMyGroupKey(groupId);
+        if (targets == null)
+        {
+            targets = _knownGroupMembers.TryGetValue(groupId, out var known) ? known.ToList() : new List<Guid>();
+        }
+        if (!_groupKeySentTo.TryGetValue(groupId, out var sent))
+        {
+            sent = new HashSet<Guid>();
+            _groupKeySentTo[groupId] = sent;
+        }
+        foreach (var targetId in targets.Distinct())
+        {
+            if (targetId == _myId || sent.Contains(targetId))
+            {
+                continue;
+            }
+            var packet = new NetworkPacket(PacketType.GetPublicKey, targetId.ToString());
+            var answer = await _net.SendAndWaitAsync(packet);
+
+            var id = answer?.Split('|');
+            if (id == null || id.Length < 2 || !Guid.TryParse(id[0], out var userId))
+            {
+                Console.WriteLine($"[GROUP] Не удалось получить ключ участника {targetId}");
+                continue;
+            }
+            var sharedSecret = _crypto.GetSharedSecret(id[1]);
+            var encMyKey = _crypto.EncryptBytes(mySenderKey, sharedSecret);
+            var serEncKey = Deser.SerJson(encMyKey);
+
+            var groupPayload = new GroupKeyPayload() { SenderId = _myId, GroupId = groupId, TargetUserId = userId, EncryptedSenderKeyBase64 = serEncKey };
+            var seringPayload = Deser.SerJson(groupPayload);
+            var networkPacket = new NetworkPacket(PacketType.SendingGroupKey, seringPayload);
+            await _net.SendPacket(networkPacket);
+            sent.Add(targetId);
+        }
+    }
+
+    public async Task<bool> SendGroupMessage(string text, Guid groupId)
+    {
+        if (_crypto == null)
+        {
+            StatusMessage = "Крипто-движок не загружен!";
+            return false;
+        }
+        await DistributeMyGroupKey(groupId);
         byte[]? myKey = _vault.KeyGet(groupId, _myId);
+        if (myKey == null)
+        {
+            StatusMessage = "Нет ключа этой группы!";
+            return false;
+        }
         EncryptedPayload eP = _crypto.Encrypt(text, myKey);
         var payload = new GroupMessagePayload
         {
@@ -898,51 +1042,119 @@ public partial class MainWindowViewModel : ViewModelBase
         var serPayload = Deser.SerJson(payload);
         var packet = new NetworkPacket(PacketType.GroupMessage, serPayload);
         await _net.SendPacket(packet);
+        return true;
     }
-    public async Task DistributeMySenderKey(Guid groupId, List<Guid> memberIds)
+
+    private void EnsureGroupPlaceholder(Guid groupId)
     {
-        byte[] mySenderKey = _crypto.GenerateSenderKeys();
-        _vault.KeyWrite(groupId, _myId, mySenderKey);
-        foreach (var targetId in memberIds)
+        if (Groups.Any(g => g.Id == groupId))
         {
-            if (targetId == _myId)
-            {
-                continue;
-            }
-            var packet = new NetworkPacket(PacketType.GetPublicKey, targetId.ToString());
-            var answer = await _net.SendAndWaitAsync(packet);
-
-            var id = answer.Split('|');
-            var userId = Guid.Parse(id[0]);
-            var sharedSecret = _crypto.GetSharedSecret(id[1]);
-            var encMyKey = _crypto.EncryptBytes(mySenderKey, sharedSecret);
-            var serEncKey = Deser.SerJson(encMyKey);
-
-            var groupPayload = new GroupKeyPayload() { SenderId = _myId, GroupId = groupId, TargetUserId = userId, EncryptedSenderKeyBase64 = serEncKey };
-            var seringPayload = Deser.SerJson(groupPayload);
-            var networkPacket = new NetworkPacket(PacketType.SendingGroupKey, seringPayload);
-            await _net.SendPacket(networkPacket);
-
+            return;
         }
-
+        var placeholder = new GroupChat()
+        {
+            Id = groupId,
+            Name = $"Группа {groupId.ToString("N")[..6]}",
+            OwnerId = Guid.Empty,
+            Members = new List<Guid>()
+        };
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!Groups.Any(g => g.Id == groupId))
+            {
+                Groups.Add(placeholder);
+            }
+        });
     }
 
     private async void HandleGroupMessage(GroupMessagePayload msg)
     {
-        var encryptedPayload = Deser.DeserJson<EncryptedPayload>(msg.EncryptedText);
-        byte[]? senderKey = _vault.KeyGet(msg.GroupId, msg.SenderId);
-        string plainText = _crypto.Decrypt(encryptedPayload, senderKey);
+        _ = ProcessGroupMessageAsync(msg);
+    }
+
+    private async Task ProcessGroupMessageAsync(GroupMessagePayload payload)
+    {
+        try
+        {
+            if (_crypto == null)
+            {
+                return;
+            }
+            byte[]? senderKey = _vault.KeyGet(payload.GroupId, payload.SenderId);
+            if (senderKey == null)
+            {
+                Console.WriteLine($"[GROUP] Нет ключа отправителя {payload.SenderId} для группы {payload.GroupId}");
+                return;
+            }
+            var encryptedPayload = Deser.DeserJson<EncryptedPayload>(payload.EncryptedText);
+            if (encryptedPayload == null)
+            {
+                return;
+            }
+            string plainText = _crypto.Decrypt(encryptedPayload, senderKey);
+
+            RememberGroupMember(payload.GroupId, payload.SenderId);
+
+            var knownUser = ActiveChats.FirstOrDefault(u => u.Id == payload.SenderId);
+            string senderName = knownUser?.Username ?? payload.SenderId.ToString("N")[..8];
+
+            EnsureGroupPlaceholder(payload.GroupId);
+
+            var displayMsg = new Message($"{senderName}: {plainText}", payload.SenderId, payload.GroupId, MessageType.Text);
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (SelectedGroup != null && SelectedGroup.Id == payload.GroupId)
+                {
+                    ChatMessages.Add(displayMsg);
+                }
+                else
+                {
+                    StatusMessage = "Новое сообщение в группе";
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Ошибка группового сообщения: {ex.Message}";
+        }
     }
     private async void HandleIncomingGroupKey(GroupKeyPayload payload)
     {
-        var encryptedKey = Deser.DeserJson<EncryptedPayload>(payload.EncryptedSenderKeyBase64);
-        var packet = new NetworkPacket(PacketType.GetPublicKey, payload.SenderId.ToString());
-        var answer = await _net.SendAndWaitAsync(packet);
+        try
+        {
+            if (_crypto == null)
+            {
+                return;
+            }
+            var encryptedKey = Deser.DeserJson<EncryptedPayload>(payload.EncryptedSenderKeyBase64);
+            if (encryptedKey == null)
+            {
+                return;
+            }
+            var packet = new NetworkPacket(PacketType.GetPublicKey, payload.SenderId.ToString());
+            var answer = await _net.SendAndWaitAsync(packet);
 
-        var parts = answer.Split('|');
-        byte[] sharedSecret = _crypto.GetSharedSecret(parts[1]);
-        byte[] cleanKey = _crypto.DecryptBytesToBytes(encryptedKey, sharedSecret);
-        _vault.KeyWrite(payload.GroupId, payload.SenderId, cleanKey);
+            var parts = answer?.Split('|');
+            if (parts == null || parts.Length < 2)
+            {
+                return;
+            }
+            byte[] sharedSecret = _crypto.GetSharedSecret(parts[1]);
+            byte[] cleanKey = _crypto.DecryptBytesToBytes(encryptedKey, sharedSecret);
+            _vault.KeyWrite(payload.GroupId, payload.SenderId, cleanKey);
+
+            RememberGroupMember(payload.GroupId, payload.SenderId);
+            // В ответ сразу отдаю свой ключ, чтобы отправитель мог читать мои сообщения
+            await DistributeMyGroupKey(payload.GroupId, new List<Guid> { payload.SenderId });
+
+            EnsureGroupPlaceholder(payload.GroupId);
+            Dispatcher.UIThread.Post(() => StatusMessage = "Тебя добавили в группу");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Ошибка ключа группы: {ex.Message}";
+        }
     }
 
     public async void OnLogClicked()
@@ -1000,7 +1212,29 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            if (SelectedUser == null || !shTools.check(NewMessageText))
+            if (!shTools.check(NewMessageText))
+            {
+                return;
+            }
+
+            if (SelectedGroup != null)
+            {
+                var groupId = SelectedGroup.Id;
+                var groupText = NewMessageText;
+                if (!await SendGroupMessage(groupText, groupId))
+                {
+                    return;
+                }
+                var groupDisplayMsg = new Message(groupText, _myId, groupId, MessageType.Text);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    ChatMessages.Add(groupDisplayMsg);
+                    NewMessageText = "";
+                });
+                return;
+            }
+
+            if (SelectedUser == null)
             {
                 return;
             }
