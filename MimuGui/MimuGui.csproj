@@ -9,7 +9,11 @@
 
   <ItemGroup>
     <Folder Include="Models\" />
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\Icons\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Icons\**\*.svg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
