@@ -6,6 +6,8 @@ using Avalonia.Threading;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Media;
+using MimuGui.Design;
+using System.Globalization;
 using System.Diagnostics;
 using Microsoft.VisualBasic;
 using System.Runtime.Serialization;
@@ -43,6 +45,11 @@ public partial class MainWindowViewModel : ViewModelBase
         _net.OnMessageStatusChanged += HandleStatusChanged;
         _net.OnGroupKeyReceived += HandleIncomingGroupKey;
         _net.OnGroupMessageReceived += HandleGroupMessage;
+
+        ChatMessages.CollectionChanged += (s, e) => RebuildChatItems();
+        Groups.CollectionChanged += (s, e) => RebuildSidebarItems();
+        ActiveChats.CollectionChanged += (s, e) => RebuildSidebarItems();
+        RebuildSidebarItems();
 
         _ = InitilizeAppAsync();
     }
@@ -86,7 +93,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
 
-    public async Task DownloadFileAsync(Message msg)
+    public async Task DownloadFileAsync(Message msg, Action<double>? onProgress = null, Action<string?>? onDone = null)
     {
         Console.WriteLine("[DEBUG-1] Вход в метод DownloadFileAsync");
         try
@@ -118,10 +125,24 @@ public partial class MainWindowViewModel : ViewModelBase
                     var error = await answer.Content.ReadAsStringAsync();
                     Dispatcher.UIThread.Post(() => StatusMessage = $"Ошибка скачивания: {answer.StatusCode}");
                     Console.WriteLine($"[MinIO]: {error}");
+                    onDone?.Invoke(null);
                     return;
                 }
                 Console.WriteLine("[DEBUG-6] Читаю байты...");
-                var encryptedBytes = await answer.Content.ReadAsByteArrayAsync();
+                long total = answer.Content.Headers.ContentLength ?? -1;
+                var buffer = new byte[81920];
+                using var stream = await answer.Content.ReadAsStreamAsync();
+                using var memory = new MemoryStream();
+                int read;
+                while ((read = await stream.ReadAsync(buffer)) > 0)
+                {
+                    await memory.WriteAsync(buffer.AsMemory(0, read));
+                    if (total > 0)
+                    {
+                        onProgress?.Invoke((double)memory.Length / total);
+                    }
+                }
+                var encryptedBytes = memory.ToArray();
                 Dispatcher.UIThread.Post(() => StatusMessage = "Расшифровываю");
                 Console.WriteLine($"[DEBUG-7] Скачано {encryptedBytes.Length} байт. Десериализация...");
 
@@ -150,6 +171,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     await File.WriteAllBytesAsync(finalPath, decryptedBytes);
                     Console.WriteLine($"[DEBUG-11] ГОТОВО! Файл сохранен: {finalPath}");
                     Dispatcher.UIThread.Post(() => StatusMessage = $"Успех! Файл в Загрузках");
+                    onDone?.Invoke(finalPath);
                 }
                 else
                 {
@@ -160,12 +182,14 @@ public partial class MainWindowViewModel : ViewModelBase
             else
             {
                 Dispatcher.UIThread.Post(() => StatusMessage = "Сервер прислал кривую ссылку!");
+                onDone?.Invoke(null);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[DOWNLOAD CRASH]: {ex}");
             Dispatcher.UIThread.Post(() => StatusMessage = $"Критический сбой: {ex.Message}");
+            onDone?.Invoke(null);
         }
     }
 
@@ -330,6 +354,19 @@ public partial class MainWindowViewModel : ViewModelBase
     {
 
         await _localMessages.UpdateMessageStatusAsync(msgId.ToString(), newStatus);
+        var chatId = _lastOwnMsgIds.FirstOrDefault(k => k.Value == msgId).Key;
+        if (chatId != Guid.Empty && _lastMessageInfo.TryGetValue(chatId, out var lastInfo))
+        {
+            lastInfo.Status = newStatus;
+            Dispatcher.UIThread.Post(() =>
+            {
+                var previewUser = ActiveChats.FirstOrDefault(u => u.Id == chatId);
+                if (previewUser != null)
+                {
+                    previewUser.LastMessageText = previewUser.LastMessageText;
+                }
+            });
+        }
         Dispatcher.UIThread.Post(() =>
         {
             var msg = ChatMessages.FirstOrDefault(m => m.Id == msgId);
@@ -349,6 +386,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task AutoLoginAsync(SessionModel session)
     {
         _myId = session.Id;
+        MyUsername = session.Username;
         StatusMessage = $"Оффлайн режим, {session.Username}";
         IsLoginVisible = false;
 
@@ -416,12 +454,6 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _draftSearch = "";
     public readonly Guid InstanceId = Guid.NewGuid();
     public ObservableCollection<User> DraftedMembers { get; set; } = new();
-    private string _attachButtonText = "📎";
-    public string AttachButtonText
-    {
-        get => _attachButtonText;
-        set => SetProperty(ref _attachButtonText, value);
-    }
     private string _newGroupName = "";
     public string NewGroupName
     {
@@ -454,7 +486,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool _isGroupVisible;
     private bool _isUploading;
     private string _newMessageText;
-    private IBrush indicator = Brushes.Gray;
+    private IBrush indicator = Palette.Gray;
     private string? indicatorText = "Ожидание...";
 
     public ObservableCollection<User> SearchResult { get; set; } = new();
@@ -474,6 +506,15 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public Guid MyId => _myId;
+
+    private string _myUsername = "ты";
+    public string MyUsername
+    {
+        get => _myUsername;
+        set => SetProperty(ref _myUsername, value);
+    }
+
+    public bool IsGroupSelected => SelectedGroup != null;
     public string Password
     {
         get => _password;
@@ -575,6 +616,9 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             OnPropertyChanged(nameof(CurrentChatTitle));
             OnPropertyChanged(nameof(CurrentChatSubtitle));
+            OnPropertyChanged(nameof(IsChatOpen));
+            OnPropertyChanged(nameof(IsGroupSelected));
+            OnPropertyChanged(nameof(SelectedChat));
         }
     }
 
@@ -598,12 +642,79 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
                 OnPropertyChanged(nameof(CurrentChatTitle));
                 OnPropertyChanged(nameof(CurrentChatSubtitle));
+                OnPropertyChanged(nameof(IsChatOpen));
+                OnPropertyChanged(nameof(IsGroupSelected));
+                OnPropertyChanged(nameof(SelectedChat));
             }
         }
     }
 
     public string CurrentChatTitle => SelectedGroup?.Name ?? SelectedUser?.Username ?? "";
     public string CurrentChatSubtitle => SelectedGroup != null ? "группа" : "";
+    public bool IsChatOpen => SelectedUser != null || SelectedGroup != null;
+
+    public ObservableCollection<object> ChatItems { get; } = new();
+    public ObservableCollection<object> SidebarItems { get; } = new();
+
+    public object? SelectedChat
+    {
+        get
+        {
+            if (SelectedGroup != null) return SelectedGroup;
+            return SelectedUser;
+        }
+        set
+        {
+            if (value is GroupChat group)
+            {
+                SelectedGroup = group;
+                return;
+            }
+            if (value is User user)
+            {
+                SelectedUser = user;
+                return;
+            }
+            SelectedGroup = null;
+            SelectedUser = null;
+        }
+    }
+
+    private void RebuildSidebarItems()
+    {
+        SidebarItems.Clear();
+        foreach (var group in Groups)
+        {
+            SidebarItems.Add(group);
+        }
+        foreach (var chat in ActiveChats)
+        {
+            SidebarItems.Add(chat);
+        }
+    }
+
+    private void RebuildChatItems()
+    {
+        ChatItems.Clear();
+        DateTime? lastDay = null;
+        foreach (var msg in ChatMessages)
+        {
+            var day = msg.SentAt.Date;
+            if (lastDay == null || day != lastDay)
+            {
+                ChatItems.Add(new DaySeparator(DayLabel(day)));
+                lastDay = day;
+            }
+            ChatItems.Add(msg);
+        }
+    }
+
+    private static string DayLabel(DateTime day)
+    {
+        if (day == DateTime.Now.Date) return "Сегодня";
+        if (day == DateTime.Now.Date.AddDays(-1)) return "Вчера";
+        return day.ToString("d MMMM", new CultureInfo("ru-RU"));
+    }
     public string NewMessageText
     {
         get => _newMessageText;
@@ -673,7 +784,7 @@ public partial class MainWindowViewModel : ViewModelBase
         while (_isReconnecting)
         {
             Console.WriteLine("Вошли в цикл");
-            Dispatcher.UIThread.Post(() => IndicatorColor = Brushes.Yellow);
+            Dispatcher.UIThread.Post(() => IndicatorColor = Palette.Yellow);
             Console.WriteLine("перекрасили");
 
             try
@@ -708,25 +819,38 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() =>
             {
-                IndicatorText = "Mimu: Подключено";
-                IndicatorColor = Brushes.Green;
+                IndicatorText = "Подключено";
+                IndicatorColor = Palette.Green;
             });
         }
         if (states == ConnectionStates.Connecting)
         {
             Dispatcher.UIThread.Post(() =>
             {
-                IndicatorColor = Brushes.Yellow;
+                IndicatorText = "Соединение";
+                IndicatorColor = Palette.Yellow;
             });
         }
         if (states == ConnectionStates.Disconnected)
         {
-            Dispatcher.UIThread.Post(() => IndicatorColor = Brushes.Gray);
+            Dispatcher.UIThread.Post(() =>
+            {
+                IndicatorText = "Нет сети";
+                IndicatorColor = Palette.Gray;
+            });
             if (!_isReconnecting)
             {
                 _ = ReconnectLoopAsync();
             }
         }
+    }
+
+    public void ReconnectNow()
+    {
+        _isReconnecting = false;
+        IndicatorColor = Palette.Yellow;
+        IndicatorText = "Соединение";
+        _ = ReconnectLoopAsync();
     }
 
     public void SwitchToRegister()
@@ -778,6 +902,8 @@ public partial class MainWindowViewModel : ViewModelBase
             else
                 StatusMessage = $"Новое сообщение от {msg.SenderUsername}";
             user.LastMessageText = msg.Text;
+            _lastMessageInfo[msg.SenderID] = new LastMessageInfo { Time = DateTime.Now, Status = MessageStatus.Delivered, IsOwn = false };
+            _lastOwnMsgIds.Remove(msg.SenderID);
             if (SelectedUser == null || SelectedUser.Id != msg.SenderID)
             {
                 user.UnreadCount++;
@@ -952,6 +1078,13 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly Dictionary<Guid, byte[]> _myGroupKeys = new();
     private readonly Dictionary<Guid, HashSet<Guid>> _groupKeySentTo = new();
     private readonly Dictionary<Guid, HashSet<Guid>> _knownGroupMembers = new();
+    private readonly Dictionary<Guid, LastMessageInfo> _lastMessageInfo = new();
+    private readonly Dictionary<Guid, Guid> _lastOwnMsgIds = new();
+
+    public LastMessageInfo? GetLastMessageInfo(Guid userId)
+    {
+        return _lastMessageInfo.TryGetValue(userId, out var info) ? info : null;
+    }
 
     private byte[] EnsureMyGroupKey(Guid groupId)
     {
@@ -973,8 +1106,6 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         set.Add(memberId);
     }
-
-    // Раздаю свой sender-key: targets == null значит всем известным участникам группы
     private async Task DistributeMyGroupKey(Guid groupId, List<Guid>? targets = null)
     {
         if (_crypto == null)
@@ -1100,7 +1231,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
             EnsureGroupPlaceholder(payload.GroupId);
 
-            var displayMsg = new Message($"{senderName}: {plainText}", payload.SenderId, payload.GroupId, MessageType.Text);
+            var displayMsg = new Message(plainText, payload.SenderId, payload.GroupId, MessageType.Text);
+            displayMsg.SenderUsername = senderName;
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -1145,7 +1277,6 @@ public partial class MainWindowViewModel : ViewModelBase
             _vault.KeyWrite(payload.GroupId, payload.SenderId, cleanKey);
 
             RememberGroupMember(payload.GroupId, payload.SenderId);
-            // В ответ сразу отдаю свой ключ, чтобы отправитель мог читать мои сообщения
             await DistributeMyGroupKey(payload.GroupId, new List<Guid> { payload.SenderId });
 
             EnsureGroupPlaceholder(payload.GroupId);
@@ -1169,6 +1300,7 @@ public partial class MainWindowViewModel : ViewModelBase
             if (user != null)
             {
                 _myId = user.Id;
+                MyUsername = user.Username;
                 var privateKey = _sessionManager.LoadPrivateKey();
                 if (privateKey != null)
                 {
@@ -1261,6 +1393,11 @@ public partial class MainWindowViewModel : ViewModelBase
             var sering = Deser.SerJson(msg);
             var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);
             await _net.SendPacket(newPacket);
+            var chatUser = SelectedUser;
+            _lastMessageInfo[chatUser.Id] = new LastMessageInfo { Time = DateTime.Now, Status = MessageStatus.Sent, IsOwn = true };
+            _lastOwnMsgIds[chatUser.Id] = msg.Id;
+            chatUser.LastMessageText = $"Вы: {originalText}";
+            _ = _localMessages.SaveUserAsync(chatUser);
             var displayMsg = new Message(originalText, _myId, SelectedUser.Id, MessageType.Text);
             Dispatcher.UIThread.Post(() =>
             {
