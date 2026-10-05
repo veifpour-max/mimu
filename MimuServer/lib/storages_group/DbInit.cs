@@ -67,6 +67,15 @@ public static class DbInitializer
             {
                 await command.ExecuteNonQueryAsync();
             }
+            using (var command = new SqliteCommand(createGroupsTable, connection))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
+            using (var command = new SqliteCommand(createGroupMembersTable, connection))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
+            
 
 
         }
