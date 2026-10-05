@@ -40,6 +40,18 @@ public static class DbInitializer
                 FOREIGN KEY(SenderId) REFERENCES Users(Id),
                 FOREIGN KEY(ReceiverId) REFERENCES Users(Id)
             );";
+            var createGroupsTable = @"
+            CREATE TABLE IF NOT EXISTS Groups(
+            Id TEXT PRIMARY KEY,
+            Name TEXT NOT NULL,
+            OwnerId TEXT NOT NULL,
+            CreatedAt TEXT NOT NULL
+            )";
+            var createGroupMembersTable = @"
+            CREATE TABLE IF NOT EXISTS GroupMembers(
+            GroupId TEXT NOT NULL,
+            UserId TEXT NOT NULL
+            )";
 
             using (var command = new SqliteCommand(createUsersTable, connection))
             {

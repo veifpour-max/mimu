@@ -26,6 +26,8 @@ UsersRepository repo = new UsersRepository(DbConfig.ConnectionString);
 
 MessagesRepository msgRepo = new MessagesRepository(DbConfig.ConnectionString);
 
+GroupsRepository groupsRepo = new GroupsRepository(DbConfig.ConnectionString);
+
 X509Certificate2 serverCert = new X509Certificate2("server.pfx", "12345");
 
 MinioService _minio = new(serverConf);
@@ -37,6 +39,13 @@ TcpListener server = new TcpListener(IPAddress.Any, 8000);
 server.Start();
 
 await DbInitializer.Initialize();
+
+foreach(var loadedGroup in await groupsRepo.GetAllAsync())
+{
+    _activeGroups.TryAdd(loadedGroup.Id, loadedGroup);
+}
+
+Console.WriteLine($"[Server] Загружено групп из БД: {_activeGroups.Count}");
 
 Console.WriteLine("Сервер запущен. Ожидание подключения...");
 
@@ -351,12 +360,22 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var group = new GroupChat() { Id = Guid.NewGuid(), Name = deserializing.GroupName, OwnerId = assignedId, Members = members };
                 Console.WriteLine($"Группа создана! Ее внутренности для дебага: {group}");
                 _activeGroups.TryAdd(group.Id, group);
+                await groupsRepo.CreateGroup(group, DateTime.Now);
                 var ser = Deser.SerJson(group);
                 var answering = new NetworkPacket(PacketType.ServerResponse, ser);
                 answering.RequestId = msg.RequestId;
                 var serAnswer = Deser.SerJson(answering);
                 await connetion.SendAsync(serAnswer);
 
+            }
+            else if (msg != null && msg.Type == PacketType.GetMyGroups)
+            {
+                var requestedId = Guid.Parse(msg.PayLoad);
+                var myGroups = await groupsRepo.GetByMemberAsync(requestedId);
+                var serGroups = Deser.SerJson(myGroups);
+                var answer = new NetworkPacket(PacketType.ServerResponse, serGroups);
+                answer.RequestId = msg.RequestId;
+                await connetion.SendAsync(Deser.SerJson(answer));
             }
             else if (msg != null && msg.Type == PacketType.SendingGroupKey)
             {

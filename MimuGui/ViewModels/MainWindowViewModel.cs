@@ -8,20 +8,11 @@ using System.Linq;
 using Avalonia.Media;
 using MimuGui.Design;
 using System.Globalization;
-using System.Diagnostics;
-using Microsoft.VisualBasic;
-using System.Runtime.Serialization;
-using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using System.IO;
 using System.Net.Http;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Platform.Storage;
-using SQLitePCL;
-using Minio.DataModel.ILM;
-using System.Xml;
-using System.Security.Cryptography;
 
 namespace MimuGui.ViewModels;
 
@@ -428,6 +419,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             }
 
+            await LoadMyGroups();
+
             StatusMessage = $"Добро пожаловать обратно, {user.Username}";
             IsLoginVisible = false;
             IsRegisterVisible = false;
@@ -682,14 +675,48 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RebuildSidebarItems()
     {
-        SidebarItems.Clear();
-        foreach (var group in Groups)
+        Dispatcher.UIThread.Post(() =>
         {
-            SidebarItems.Add(group);
+            SidebarItems.Clear();
+            foreach (var group in Groups)
+            {
+                SidebarItems.Add(group);
+            }
+            foreach (var chat in ActiveChats)
+            {
+                SidebarItems.Add(chat);
+            }
+        });
+    }
+
+    public async Task LoadMyGroups()
+    {
+        try
+        {
+            var packet = new NetworkPacket(PacketType.GetMyGroups, _myId.ToString());
+            var answer = await _net.SendAndWaitAsync(packet);
+            var myGroups = Deser.DeserJson<List<GroupChat>>(answer);
+            if (myGroups == null)
+            {
+                return;
+            }
+            foreach (var group in myGroups)
+            {
+                var placeholder = Groups.FirstOrDefault(g => g.Id == group.Id);
+                if (placeholder != null)
+                {
+                    Groups.Remove(placeholder);
+                }
+                Groups.Add(group);
+                foreach (var memberId in group.Members)
+                {
+                    RememberGroupMember(group.Id, memberId);
+                }
+            }
         }
-        foreach (var chat in ActiveChats)
+        catch (Exception ex)
         {
-            SidebarItems.Add(chat);
+            Console.WriteLine($"[GROUP] Не удалось загрузить группы: {ex.Message}");
         }
     }
 
@@ -1279,8 +1306,9 @@ public partial class MainWindowViewModel : ViewModelBase
             RememberGroupMember(payload.GroupId, payload.SenderId);
             await DistributeMyGroupKey(payload.GroupId, new List<Guid> { payload.SenderId });
 
+            var known = Groups.Any(g => g.Id == payload.GroupId);
             EnsureGroupPlaceholder(payload.GroupId);
-            Dispatcher.UIThread.Post(() => StatusMessage = "Тебя добавили в группу");
+            Dispatcher.UIThread.Post(() => StatusMessage = known ? "Ключ группы получен" : "Тебя добавили в группу");
         }
         catch (Exception ex)
         {
@@ -1311,8 +1339,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 {
                     StatusMessage = $"Критическая ошибка! Приватный ключ не найден. Чат невозможен";
                 }
-                StatusMessage = $"Добро пожаловать, {user.Username}";
                 _sessionManager.SaveSession(user.Username, Password, user.Id, "127.0.0.1");
+                StatusMessage = $"Добро пожаловать, {user.Username}";
                 _net.StartListening();
                 IsLoginVisible = false;
                 IsRegisterVisible = false;
@@ -1329,6 +1357,8 @@ public partial class MainWindowViewModel : ViewModelBase
                         await _localMessages.SaveUserAsync(c);
                     }
                 }
+
+                await LoadMyGroups();
             }
             if (user == null)
             {
@@ -1449,9 +1479,9 @@ public partial class MainWindowViewModel : ViewModelBase
             var privateKey = crypto.ExportMyPrivateKey();
             var payload = new RegisterPayload(RegName, RegUsername, RegPassword, publicKey);
             var success = await _net.RegisterAsync(payload);
-            _sessionManager.SavePrivateKey(privateKey);
             if (success)
             {
+                _sessionManager.SavePrivateKey(privateKey);
                 StatusMessage = "Успешная регистрация, теперь войдите";
                 SwitchToLogin();
                 Username = RegUsername;

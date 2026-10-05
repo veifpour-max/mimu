@@ -910,7 +910,6 @@ public partial class MainWindow : Window
                                                         Background = Palette.SurfaceContainerHighest,
                                                         Child = new TextBlock
                                                         {
-                                                            [!TextBlock.TextProperty] = new Binding(nameof(MainWindowViewModel.MyUsername)),
                                                             FontSize = 12,
                                                             FontWeight = FontWeight.SemiBold,
                                                             Foreground = Palette.OnSurfaceVariant,
