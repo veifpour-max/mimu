@@ -17,7 +17,7 @@ public class GroupsRepository
 
     public async Task CreateGroup(GroupChat groupChat, DateTime createdAt)
     {
-        var query = "INSERT INTO Groups (Id, Name, OwnerId, CreatedAt) VALUES (@id, @name, @ownerid, @createdat)";
+        var query = "INSERT INTO Groups (Id, Name, OwnerId, CreatedAt) VALUES (@id, @name, @ownerid, @createdAt)";
         var memberQuery = "INSERT INTO GroupMembers (GroupId, UserId) VALUES (@groupid, @userid)";
 
         using(var connection = new SqliteConnection(ConnectionPath))

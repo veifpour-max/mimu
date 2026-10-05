@@ -40,9 +40,16 @@ server.Start();
 
 await DbInitializer.Initialize();
 
-foreach(var loadedGroup in await groupsRepo.GetAllAsync())
+try
 {
-    _activeGroups.TryAdd(loadedGroup.Id, loadedGroup);
+    foreach(var loadedGroup in await groupsRepo.GetAllAsync())
+    {
+        _activeGroups.TryAdd(loadedGroup.Id, loadedGroup);
+    }
+}
+catch (Exception loadEx)
+{
+    Console.WriteLine($"[Server] Ошибка загрузки групп из БД: {loadEx}");
 }
 
 Console.WriteLine($"[Server] Загружено групп из БД: {_activeGroups.Count}");
@@ -360,7 +367,14 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var group = new GroupChat() { Id = Guid.NewGuid(), Name = deserializing.GroupName, OwnerId = assignedId, Members = members };
                 Console.WriteLine($"Группа создана! Ее внутренности для дебага: {group}");
                 _activeGroups.TryAdd(group.Id, group);
-                await groupsRepo.CreateGroup(group, DateTime.Now);
+                try
+                {
+                    await groupsRepo.CreateGroup(group, DateTime.Now);
+                }
+                catch (Exception dbEx)
+                {
+                    Console.WriteLine($"[Server] Ошибка записи группы в БД: {dbEx}");
+                }
                 var ser = Deser.SerJson(group);
                 var answering = new NetworkPacket(PacketType.ServerResponse, ser);
                 answering.RequestId = msg.RequestId;
@@ -409,8 +423,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
 
         }
-        catch
+        catch (Exception handleEx)
         {
+            Console.WriteLine($"[Server] Ошибка обработки клиента: {handleEx}");
             if (assignedId != Guid.Empty)
             {
                 _clients.TryRemove(assignedId, out _);
