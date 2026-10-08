@@ -42,7 +42,7 @@ await DbInitializer.Initialize();
 
 try
 {
-    foreach(var loadedGroup in await groupsRepo.GetAllAsync())
+    foreach (var loadedGroup in await groupsRepo.GetAllAsync())
     {
         _activeGroups.TryAdd(loadedGroup.Id, loadedGroup);
     }
@@ -403,22 +403,22 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     }
                 }
             }
-            else if(msg != null && msg.Type == PacketType.GroupMessage)
+            else if (msg != null && msg.Type == PacketType.GroupMessage)
             {
                 var deseredPayload = Deser.DeserJson<GroupMessagePayload>(msg.PayLoad);
-                if(deseredPayload != null && _activeGroups.TryGetValue(deseredPayload.GroupId, out var group))
+                if (deseredPayload != null && _activeGroups.TryGetValue(deseredPayload.GroupId, out var group))
                 {
                     var sering = Deser.SerJson(msg);
                     foreach (var memberId in group.Members)
                     {
-                        if(memberId == deseredPayload.SenderId) continue;
-                        if(_clients.TryGetValue(memberId, out var conn) && conn.Client.Connected)
+                        if (memberId == deseredPayload.SenderId) continue;
+                        if (_clients.TryGetValue(memberId, out var conn) && conn.Client.Connected)
                         {
                             await conn.SendAsync(sering);
                         }
                     }
                 }
-                
+
             }
 
 

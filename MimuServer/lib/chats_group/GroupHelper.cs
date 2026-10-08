@@ -24,7 +24,9 @@ public class GroupChat
 }
 public class GroupMessagePayload
 {
+    public Guid MessageId {get; set;}
     public Guid GroupId { get; set; }
     public Guid SenderId { get; set; } 
-    public string EncryptedText { get; set; } 
+    public string EncryptedText { get; set; }
+    public DateTime SentAt {get; set;}
 }

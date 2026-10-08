@@ -111,5 +111,67 @@ public class MessagesRepository
         }
         return contacts;
     }
+    public async Task SaveGroupMessageAsync(GroupMessagePayload msg)
+    {
+
+        var query = "INSERT INTO GroupMessages(Id, GroupId, Text, SenderId, SentAt, Status) VALUES (@id, @groupid, @text, @senderid, @sentat, @status);";
+        using (var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@id", msg.MessageId.ToString());
+                command.Parameters.AddWithValue("@groupid", msg.GroupId.ToString());
+                command.Parameters.AddWithValue("@text", msg.EncryptedText);
+                command.Parameters.AddWithValue("@senderid", msg.SenderId.ToString());
+                command.Parameters.AddWithValue("@sentAt", msg.SentAt);
+                command.Parameters.AddWithValue("@status", MessageStatus.Delivered);
+
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+    }
+    public async Task<List<GroupMessagePayload>> GetGroupHistoryAsync(Guid groupId)
+    {
+        var history = new List<GroupMessagePayload>();
+        var query = "SELECT Id, GroupId, Text, SenderId, SentAt, Status FROM GroupMessages WHERE GroupId = @groupid ORDER BY SentAt ASC;";
+
+        using (var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@groupid", groupId.ToString());
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        var id = Guid.Parse(reader.GetString(0));
+                        var groupid = Guid.Parse(reader.GetString(1));
+                        var text = reader.GetString(2);
+                        var senderId = Guid.Parse(reader.GetString(3));
+                        var sentAt = DateTime.Parse(reader.GetString(4));
+                        // var status = (MessageStatus)(reader.GetInt32(5));
+                        // статус не будем передавать по сети пока что
+
+                        var sendMsg = new GroupMessagePayload()
+                        {
+                            MessageId = id,
+                            GroupId = groupid,
+                            EncryptedText = text,
+                            SenderId = senderId,
+                            SentAt = sentAt,
+                        };
+                        history.Add(sendMsg);
+
+
+
+                    }
+                }
+            }
+        }
+        return history;
+    }
 
 }

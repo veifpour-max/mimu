@@ -52,6 +52,17 @@ public static class DbInitializer
             GroupId TEXT NOT NULL,
             UserId TEXT NOT NULL
             )";
+            var createGroupMessagesTable = @"
+            CREATE TABLE IF NOT EXISTS GroupMessages(
+            Id TEXT PRIMARY KEY,
+            GroupId TEXT NOT NULL,
+            Text TEXT NOT NULL,
+            SenderId TEXT NOT NULL,
+            SentAt TEXT NOT NULL,
+            Status INTEGER NOT NULL,
+            FOREIGN KEY(SenderId) REFERENCES Users(Id),
+            FOREIGN KEY(GroupId) REFERENCES Groups(Id)
+            )";
 
             using (var command = new SqliteCommand(createUsersTable, connection))
             {
@@ -75,7 +86,11 @@ public static class DbInitializer
             {
                 await command.ExecuteNonQueryAsync();
             }
-            
+            using (var command = new SqliteCommand(createGroupMessagesTable, connection))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
+
 
 
         }
