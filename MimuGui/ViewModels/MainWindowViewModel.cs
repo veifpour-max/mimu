@@ -1194,7 +1194,7 @@ public partial class MainWindowViewModel : ViewModelBase
             GroupId = groupId,
             SenderId = _myId,
             EncryptedText = Deser.SerJson(eP),
-            SentAt = DateTime.UtcNow
+            SentAt = DateTime.Now
         };
         var serPayload = Deser.SerJson(payload);
         var packet = new NetworkPacket(PacketType.GroupMessage, serPayload);

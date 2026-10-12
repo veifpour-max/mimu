@@ -34,7 +34,7 @@ public class LocalMessagesRepository
             }
         }
         _filePath = Path.Combine(directoryPath, $"local_history{suffix}.db");
-        _sqlpath = $"Data Source={_filePath}";
+        _sqlpath = $"Data Source={_filePath};Foreign Keys=False";
     }
     public async Task InitializeLocalDatabase()
     {
