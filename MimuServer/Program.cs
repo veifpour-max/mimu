@@ -417,8 +417,22 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                             await conn.SendAsync(sering);
                         }
                     }
+                    await msgRepo.SaveGroupMessageAsync(deseredPayload);
                 }
 
+            }
+            else if(msg != null && msg.Type == PacketType.GetGroupHistory)
+            {
+                var groupId = Guid.Parse(msg.PayLoad);
+                if(_activeGroups.TryGetValue(groupId, out var group) && group.Members.Contains(assignedId))
+                {
+                    var history = await msgRepo.GetGroupHistoryAsync(groupId);
+                    var ser = Deser.SerJson(history);
+                    var answer = new NetworkPacket(PacketType.ServerResponse, ser);
+                    answer.RequestId = msg.RequestId;
+                    var finalAnswer = Deser.SerJson(answer);
+                    await connetion.SendAsync(finalAnswer);
+                }
             }
 
 

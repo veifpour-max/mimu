@@ -18,7 +18,8 @@ public enum PacketType
     RequestDownloadUrl,
     CreateGroup,
     SendingGroupKey,
-    GetMyGroups
+    GetMyGroups,
+    GetGroupHistory
 }
 
 public class NetworkPacket

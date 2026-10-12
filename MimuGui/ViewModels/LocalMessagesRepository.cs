@@ -255,7 +255,7 @@ public class LocalMessagesRepository
     }
     public async Task SaveLocalGroupMessageAsync(GroupMessagePayload msg)
     {
-        var query = "INSERT INTO LocalGroupMessages(Id, GroupId, Text, SenderId, SentAt, Status) VALUES (@id, @groupid, @text, @senderid, @sentat, @status);";
+        var query = "INSERT OR IGNORE INTO LocalGroupMessages(Id, GroupId, Text, SenderId, SentAt, Status) VALUES (@id, @groupid, @text, @senderid, @sentat, @status);";
         using (var connection = new SqliteConnection(_sqlpath))
         {
             await connection.OpenAsync();
