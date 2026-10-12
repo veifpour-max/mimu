@@ -124,7 +124,7 @@ public class MessagesRepository
                 command.Parameters.AddWithValue("@groupid", msg.GroupId.ToString());
                 command.Parameters.AddWithValue("@text", msg.EncryptedText);
                 command.Parameters.AddWithValue("@senderid", msg.SenderId.ToString());
-                command.Parameters.AddWithValue("@sentAt", msg.SentAt);
+                command.Parameters.AddWithValue("@sentat", msg.SentAt);
                 command.Parameters.AddWithValue("@status", MessageStatus.Delivered);
 
                 await command.ExecuteNonQueryAsync();
@@ -152,8 +152,6 @@ public class MessagesRepository
                         var text = reader.GetString(2);
                         var senderId = Guid.Parse(reader.GetString(3));
                         var sentAt = DateTime.Parse(reader.GetString(4));
-                        // var status = (MessageStatus)(reader.GetInt32(5));
-                        // статус не будем передавать по сети пока что
 
                         var sendMsg = new GroupMessagePayload()
                         {

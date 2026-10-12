@@ -265,7 +265,7 @@ public class LocalMessagesRepository
                 command.Parameters.AddWithValue("@groupid", msg.GroupId.ToString());
                 command.Parameters.AddWithValue("@text", msg.EncryptedText);
                 command.Parameters.AddWithValue("@senderid", msg.SenderId.ToString());
-                command.Parameters.AddWithValue("@sentAt", msg.SentAt);
+                command.Parameters.AddWithValue("@sentat", msg.SentAt);
                 command.Parameters.AddWithValue("@status", MessageStatus.Delivered);
 
                 await command.ExecuteNonQueryAsync();
