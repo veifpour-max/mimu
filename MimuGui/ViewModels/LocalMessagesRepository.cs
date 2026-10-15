@@ -317,11 +317,11 @@ public class LocalMessagesRepository
         var query = "INSERT INTO LocalGroups (Id, Name, OwnerId, CreatedAt) VALUES (@id, @name, @ownerid, @createdAt)";
         var memberQuery = "INSERT INTO LocalGroupMembers (GroupId, UserId) VALUES (@groupid, @userid)";
 
-        using(var connection = new SqliteConnection(_sqlpath))
+        using (var connection = new SqliteConnection(_sqlpath))
         {
             await connection.OpenAsync();
 
-            using(var command = new SqliteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@id", groupChat.Id.ToString());
                 command.Parameters.AddWithValue("@name", groupChat.Name);
@@ -331,9 +331,9 @@ public class LocalMessagesRepository
                 await command.ExecuteNonQueryAsync();
             }
 
-            foreach(var memberId in groupChat.Members)
+            foreach (var memberId in groupChat.Members)
             {
-                using(var command = new SqliteCommand(memberQuery, connection))
+                using (var command = new SqliteCommand(memberQuery, connection))
                 {
                     command.Parameters.AddWithValue("@groupid", groupChat.Id.ToString());
                     command.Parameters.AddWithValue("@userid", memberId.ToString());
@@ -349,14 +349,14 @@ public class LocalMessagesRepository
         var groups = new List<GroupChat>();
         var members = new Dictionary<string, List<Guid>>();
 
-        using(var connection = new SqliteConnection(_sqlpath))
+        using (var connection = new SqliteConnection(_sqlpath))
         {
             await connection.OpenAsync();
 
-            using(var command = new SqliteCommand("SELECT Id, Name, OwnerId FROM LocalGroups", connection))
-            using(var reader = await command.ExecuteReaderAsync())
+            using (var command = new SqliteCommand("SELECT Id, Name, OwnerId FROM LocalGroups", connection))
+            using (var reader = await command.ExecuteReaderAsync())
             {
-                while(await reader.ReadAsync())
+                while (await reader.ReadAsync())
                 {
                     groups.Add(new GroupChat
                     {
@@ -368,13 +368,13 @@ public class LocalMessagesRepository
                 }
             }
 
-            using(var command = new SqliteCommand("SELECT GroupId, UserId FROM LocalGroupMembers", connection))
-            using(var reader = await command.ExecuteReaderAsync())
+            using (var command = new SqliteCommand("SELECT GroupId, UserId FROM LocalGroupMembers", connection))
+            using (var reader = await command.ExecuteReaderAsync())
             {
-                while(await reader.ReadAsync())
+                while (await reader.ReadAsync())
                 {
                     var groupId = reader.GetString(0);
-                    if(!members.TryGetValue(groupId, out var list))
+                    if (!members.TryGetValue(groupId, out var list))
                     {
                         list = new List<Guid>();
                         members[groupId] = list;
@@ -384,9 +384,9 @@ public class LocalMessagesRepository
             }
         }
 
-        foreach(var group in groups)
+        foreach (var group in groups)
         {
-            if(members.TryGetValue(group.Id.ToString(), out var list))
+            if (members.TryGetValue(group.Id.ToString(), out var list))
             {
                 group.Members = list;
             }

@@ -264,6 +264,15 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
                 Guid desering = Guid.Parse(msg.PayLoad);
+                if (desering!= assignedId)
+                {
+                    Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
+                    var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
+                    alert.RequestId = msg.RequestId;
+                    await connetion.SendAsync(Deser.SerJson(alert));
+                    continue;
+                }
+
                 List<Guid> checking = await msgRepo.GetContactIdsAsync(desering);
                 List<User> contactUser = new List<User>();
 
@@ -288,6 +297,15 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var makedResult = msg.PayLoad.Split('|');
                 Guid myId = Guid.Parse(makedResult[0]);
                 Guid targetId = Guid.Parse(makedResult[1]);
+
+                if (targetId != assignedId)
+                {
+                    Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
+                    var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
+                    alert.RequestId = msg.RequestId;
+                    await connetion.SendAsync(Deser.SerJson(alert));
+                    continue;
+                }
 
                 List<Message> history = await msgRepo.GetChatHistoryAsync(myId, targetId);
 
@@ -385,6 +403,14 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             else if (msg != null && msg.Type == PacketType.GetMyGroups)
             {
                 var requestedId = Guid.Parse(msg.PayLoad);
+                if (requestedId != assignedId)
+                {
+                    Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
+                    var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
+                    alert.RequestId = msg.RequestId;
+                    await connetion.SendAsync(Deser.SerJson(alert));
+                    continue;
+                }
                 var myGroups = await groupsRepo.GetByMemberAsync(requestedId);
                 var serGroups = Deser.SerJson(myGroups);
                 var answer = new NetworkPacket(PacketType.ServerResponse, serGroups);
@@ -421,10 +447,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 }
 
             }
-            else if(msg != null && msg.Type == PacketType.GetGroupHistory)
+            else if (msg != null && msg.Type == PacketType.GetGroupHistory)
             {
                 var groupId = Guid.Parse(msg.PayLoad);
-                if(_activeGroups.TryGetValue(groupId, out var group) && group.Members.Contains(assignedId))
+                if (_activeGroups.TryGetValue(groupId, out var group) && group.Members.Contains(assignedId))
                 {
                     var history = await msgRepo.GetGroupHistoryAsync(groupId);
                     var ser = Deser.SerJson(history);

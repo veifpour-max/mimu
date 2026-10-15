@@ -78,15 +78,22 @@ public class NetworkService
 
         using var cts = new CancellationTokenSource(timeout);
         cts.Token.Register(() => tcs.TrySetCanceled());
-
+        var answer = await tcs.Task;
+        if (answer.StartsWith("ERROR|"))
+        {
+            throw new Exception("Сервер отклонил запрос: " + answer["ERROR|".Length..]);
+        }
         try
         {
-            return await tcs.Task;
+            return answer;
         }
+
         catch (Exception ex)
         {
             throw new Exception($"Сервер не ответил в течении {timeout} мс");
         }
+
+
 
     }
     public async Task SendPacket(NetworkPacket packet)
@@ -140,8 +147,8 @@ public class NetworkService
     {
         if (_writer == null || _reader == null)
         {
-           throw new Exception("Сокет не инициализирован"); 
-        } 
+            throw new Exception("Сокет не инициализирован");
+        }
         using var cts = new CancellationTokenSource(timeout);
         var loginSer = Deser.SerJson(login);
         var authPacket = new NetworkPacket(PacketType.Auth, loginSer);
@@ -149,7 +156,7 @@ public class NetworkService
         await _writer.WriteLineAsync(finalPacket);
         var waiting = await _reader.ReadLineAsync(cts.Token);
 
-        if(waiting == null)
+        if (waiting == null)
         {
             throw new Exception("Сервер сбросил соединение");
         }
