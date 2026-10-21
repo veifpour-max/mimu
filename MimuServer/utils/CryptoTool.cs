@@ -1,3 +1,5 @@
+using Konscious.Security.Cryptography;
+
 namespace LocalMimu.Models;
 
 public static class Crypto
@@ -8,5 +10,10 @@ public static class Crypto
         var incomingHash = System.Security.Cryptography.SHA256.HashData(inByte);
         var finalHash = Convert.ToHexString(incomingHash);
         return finalHash;
+    }
+    public static string BcryptEncode(string passhash)
+    {
+        var hashing = BCrypt.Net.BCrypt.EnhancedHashPassword(passhash);
+        return hashing;
     }
 }
