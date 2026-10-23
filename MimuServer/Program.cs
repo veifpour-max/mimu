@@ -296,9 +296,9 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 var makedResult = msg.PayLoad.Split('|');
                 Guid myId = Guid.Parse(makedResult[0]);
-                Guid targetId = Guid.Parse(makedResult[1]);
+                Guid receiverId = Guid.Parse(makedResult[1]);
 
-                if (targetId != assignedId)
+                if (myId != assignedId)
                 {
                     Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
                     var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
@@ -307,7 +307,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     continue;
                 }
 
-                List<Message> history = await msgRepo.GetChatHistoryAsync(myId, targetId);
+                List<Message> history = await msgRepo.GetChatHistoryAsync(myId, receiverId);
 
                 var serHistory = Deser.SerJson(history);
 
