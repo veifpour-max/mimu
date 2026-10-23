@@ -1511,6 +1511,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 else StatusMessage = "У собеседника нет публичного ключа!";
                 return;
             }
+            // ВАЖНО: сообщение сохраняется в локальную БД ДО отправки. Если SendPacket
+            // бросит исключение, в LocalMessages останется запись со статусом Sent,
+            // хотя сообщение не отправлено и в UI не показано. Когда появится статус
+            // Pending (ТЗ про фоновую досылку), сохранение нужно будет делать с ним
+            // и переводить в Sent только после успешной отправки.
             await _localMessages.SaveMessagesAsync(msg);
             var sering = Deser.SerJson(msg);
             var newPacket = new NetworkPacket(PacketType.ChatMessage, sering);

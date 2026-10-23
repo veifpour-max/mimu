@@ -74,7 +74,15 @@ public class NetworkService
     {
         var tcs = new TaskCompletionSource<string>();
         lock (_lock) { _pendingRequests.TryAdd(packet.RequestId, tcs); }
-        await SendPacket(packet);
+        try
+        {
+            await SendPacket(packet);
+        }
+        catch
+        {
+            _pendingRequests.TryRemove(packet.RequestId, out _);
+            throw;
+        }
 
         using var cts = new CancellationTokenSource(timeout);
         cts.Token.Register(() => tcs.TrySetCanceled());
@@ -83,45 +91,20 @@ public class NetworkService
         {
             throw new Exception("Сервер отклонил запрос: " + answer["ERROR|".Length..]);
         }
-        try
-        {
-            return answer;
-        }
-
-        catch (Exception ex)
-        {
-            throw new Exception($"Сервер не ответил в течении {timeout} мс");
-        }
-
-
-
+        return answer;
     }
     public async Task SendPacket(NetworkPacket packet)
     {
-        Console.WriteLine($"[TRACK 1] Начинаю отправку пакета Type: {packet.Type}");
-        try
+        var send = Deser.SerJson(packet);
+
+        if (_writer == null)
         {
-            var send = Deser.SerJson(packet);
-            Console.WriteLine($"[TRACK 2] Сериализация успешна: {send}");
-
-            if (_writer == null)
-            {
-                Console.WriteLine("[TRACK ERROR] СТОП! _writer равен null!");
-                return;
-            }
-
-            Console.WriteLine("[TRACK 3] Вызываю _writer.WriteLineAsync...");
-            await _writer.WriteLineAsync(send);
-
-            Console.WriteLine("[TRACK 4] Вызываю _writer.FlushAsync()...");
-            await _writer.FlushAsync();
-
-            Console.WriteLine($"[TRACK 5] Пакет Type: {packet.Type} физически ушел в ОС!");
+            throw new InvalidOperationException("Writer равен нулю. Отправка невозможна");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[TRACK CRASH] Ошибка в SendPacket: {ex.Message}");
-        }
+        await _writer.WriteLineAsync(send);
+
+        await _writer.FlushAsync();
+
     }
     public async Task<bool> RegisterAsync(RegisterPayload registerPayload)
     {
@@ -268,6 +251,9 @@ public class NetworkService
                 if (ex is IOException || ex is ObjectDisposedException)
                 {
                     OnStateChanged?.Invoke(ConnectionStates.Disconnected);
+                    // без этого _writer останется не-null, и первая отправка после
+                    // разрыва молча уйдет в мертвый сокет вместо исключения
+                    DisposeOldResources();
                     break;
                 }
                 Console.WriteLine($"Ошибка! {ex.Message}");
