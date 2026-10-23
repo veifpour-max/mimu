@@ -11,6 +11,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.Data;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Options;
 
 
 ConcurrentDictionary<Guid, ClientConnection> _clients = new();
@@ -94,7 +95,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
     }
     var writer = new StreamWriter(sslStream) { AutoFlush = true };
     var reader = new StreamReader(sslStream);
-    var connetion = new ClientConnection { Writer = writer, Client = client };
+    var connection = new ClientConnection { Writer = writer, Client = client };
     Guid assignedId = Guid.Empty;
     while (true)
     {
@@ -124,8 +125,8 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var packet = new NetworkPacket(PacketType.ServerResponse, serUser);
                     var final = Deser.SerJson(packet);
                     _failedAttempts.TryRemove(ip, out _);
-                    await connetion.SendAsync(final);
-                    _clients[user.Id] = connetion;
+                    await connection.SendAsync(final);
+                    _clients[user.Id] = connection;
                     assignedId = user.Id;
                     break;
                 }
@@ -134,7 +135,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var packet = new NetworkPacket(PacketType.ServerResponse, "");
                     var final = Deser.SerJson(packet);
                     _failedAttempts.AddOrUpdate(ip, 1, (key, oldValue) => oldValue + 1);
-                    await connetion.SendAsync(final);
+                    await connection.SendAsync(final);
                     if (_failedAttempts.TryGetValue(ip, out int attempts))
                     {
                         if (attempts >= 5)
@@ -154,11 +155,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 if (success)
                 {
-                    _clients[data.id] = connetion;
+                    _clients[data.id] = connection;
                     assignedId = data.id;
-                    string serverResponse = "1";
-                    var jsonAnswer = JsonSerializer.Serialize(serverResponse);
-                    await connetion.SendAsync(jsonAnswer);
+                    var netAnswer = new NetworkPacket(PacketType.ServerResponse, "OK");
+                    await connection.SendAsync(Deser.SerJson(netAnswer));
                     Console.WriteLine($"Клиент успешно зарегистрирован: {assignedId}");
                     break;
                 }
@@ -173,6 +173,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                             _bannedIps[ip] = DateTime.UtcNow.AddMinutes(15);
                         }
                     }
+                    var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|USERNAME_TAKEN");
+                    alert.RequestId = authPacket.RequestId;
+                    await connection.SendAsync(Deser.SerJson(alert));
+                
                 }
 
             }
@@ -193,7 +197,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                         await Task.Delay(30000);
                         var ping = new NetworkPacket(PacketType.Ping, "");
                         var serPing = Deser.SerJson(ping);
-                        await connetion.SendAsync(serPing);
+                        await connection.SendAsync(serPing);
                     }
                 }
                 catch (Exception ex)
@@ -269,7 +273,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
                     var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
                     alert.RequestId = msg.RequestId;
-                    await connetion.SendAsync(Deser.SerJson(alert));
+                    await connection.SendAsync(Deser.SerJson(alert));
                     continue;
                 }
 
@@ -303,7 +307,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
                     var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
                     alert.RequestId = msg.RequestId;
-                    await connetion.SendAsync(Deser.SerJson(alert));
+                    await connection.SendAsync(Deser.SerJson(alert));
                     continue;
                 }
 
@@ -315,7 +319,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 netPack.RequestId = msg.RequestId;
                 var finalPack = Deser.SerJson(netPack);
 
-                await connetion.SendAsync(finalPack);
+                await connection.SendAsync(finalPack);
             }
             else if (msg != null && msg.Type == PacketType.MessageDelivered)
             {
@@ -346,7 +350,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var send = new NetworkPacket(PacketType.ServerResponse, answerToSend);
                 send.RequestId = msg.RequestId;
                 var serSend = Deser.SerJson(send);
-                await connetion.SendAsync(serSend);
+                await connection.SendAsync(serSend);
             }
             else if (msg != null && msg.Type == PacketType.RequestUploadUrl)
             {
@@ -359,7 +363,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine("networkpacket сделан!");
                 var desering = Deser.SerJson(send);
                 Console.WriteLine("networkpacket сериализован");
-                await connetion.SendAsync(desering);
+                await connection.SendAsync(desering);
                 Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
             }
             else if (msg != null && msg.Type == PacketType.RequestDownloadUrl)
@@ -370,7 +374,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var send = new NetworkPacket(PacketType.ServerResponse, url.ToString());
                 send.RequestId = msg.RequestId;
                 var sering = Deser.SerJson(send);
-                await connetion.SendAsync(sering);
+                await connection.SendAsync(sering);
                 Console.WriteLine("ОТВЕТ ОТПРАВЛЕН!");
             }
             else if (msg != null && msg.Type == PacketType.CreateGroup)
@@ -397,7 +401,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var answering = new NetworkPacket(PacketType.ServerResponse, ser);
                 answering.RequestId = msg.RequestId;
                 var serAnswer = Deser.SerJson(answering);
-                await connetion.SendAsync(serAnswer);
+                await connection.SendAsync(serAnswer);
 
             }
             else if (msg != null && msg.Type == PacketType.GetMyGroups)
@@ -408,14 +412,14 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
                     var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
                     alert.RequestId = msg.RequestId;
-                    await connetion.SendAsync(Deser.SerJson(alert));
+                    await connection.SendAsync(Deser.SerJson(alert));
                     continue;
                 }
                 var myGroups = await groupsRepo.GetByMemberAsync(requestedId);
                 var serGroups = Deser.SerJson(myGroups);
                 var answer = new NetworkPacket(PacketType.ServerResponse, serGroups);
                 answer.RequestId = msg.RequestId;
-                await connetion.SendAsync(Deser.SerJson(answer));
+                await connection.SendAsync(Deser.SerJson(answer));
             }
             else if (msg != null && msg.Type == PacketType.SendingGroupKey)
             {
@@ -457,7 +461,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var answer = new NetworkPacket(PacketType.ServerResponse, ser);
                     answer.RequestId = msg.RequestId;
                     var finalAnswer = Deser.SerJson(answer);
-                    await connetion.SendAsync(finalAnswer);
+                    await connection.SendAsync(finalAnswer);
                 }
             }
 

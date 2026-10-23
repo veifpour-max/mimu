@@ -128,15 +128,28 @@ public class NetworkService
         var serializedUserPayload = Deser.SerJson(registerPayload);
         var regJson = new NetworkPacket(PacketType.Register, serializedUserPayload);
         var finalUser = Deser.SerJson(regJson);
+        if (_writer == null || _reader == null)
+        {
+            throw new Exception("Сокет не инициализирован");
+        }
+        using var cts = new CancellationTokenSource(10000);
         await _writer.WriteLineAsync(finalUser);
-        var waiting = await _reader.ReadLineAsync();
+        var waiting = await _reader.ReadLineAsync(cts.Token);
+        if (waiting == null)
+        {
+            throw new Exception("Сервер сбросил соединение");
+        }
         if (!shTools.check(waiting))
         {
             Console.WriteLine("Что-то пошло не так..");
             return false;
         }
-        var finalAnswer = Deser.DeserJson<string>(waiting);
-        if (finalAnswer == "1")
+        var finalAnswer = Deser.DeserJson<NetworkPacket>(waiting);
+        if (finalAnswer == null)
+        {
+            return false;
+        }
+        if (finalAnswer.PayLoad == "OK")
         {
             return true;
         }
