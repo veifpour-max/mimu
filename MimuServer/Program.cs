@@ -132,7 +132,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 }
                 else
                 {
-                    var packet = new NetworkPacket(PacketType.ServerResponse, "");
+                    var packet = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
                     var final = Deser.SerJson(packet);
                     _failedAttempts.AddOrUpdate(ip, 1, (key, oldValue) => oldValue + 1);
                     await connection.SendAsync(final);
@@ -176,7 +176,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|USERNAME_TAKEN");
                     alert.RequestId = authPacket.RequestId;
                     await connection.SendAsync(Deser.SerJson(alert));
-                
+
                 }
 
             }
@@ -224,7 +224,16 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             {
                 continue;
             }
-            var msg = JsonSerializer.Deserialize<NetworkPacket>(received);
+            NetworkPacket? msg;
+            try
+            {
+                msg = JsonSerializer.Deserialize<NetworkPacket>(received);
+            }
+            catch (JsonException jsonEx)
+            {
+                Console.WriteLine($"Мусорный пакет от {assignedId}: {jsonEx.Message}");
+                continue;
+            }
             if (msg == null)
             {
                 continue;
@@ -238,7 +247,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 var finalMsg = JsonSerializer.Deserialize<Message>(msg.PayLoad);
                 if (finalMsg == null || finalMsg.SenderID != assignedId)
                 {
-                    Console.WriteLine($"[SECURITY] {assignedId} прислал чужой SenderID ({finalMsg?.SenderID}). Пакет отброшен.");
+                    Console.WriteLine($"{assignedId} прислал чужой SenderID ({finalMsg?.SenderID}). Пакет отброшен.");
                     continue;
                 }
                 var sender = await repo.GetUserById(finalMsg.SenderID);
@@ -268,7 +277,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 Console.WriteLine($"[DEBUG] Распарсил пакет. Type в цифрах: {(int)msg.Type}. Type в тексте: {msg.Type}");
                 Console.WriteLine($"Получен запрос чатов от пользователя: {msg.PayLoad}");
                 Guid desering = Guid.Parse(msg.PayLoad);
-                if (desering!= assignedId)
+                if (desering != assignedId)
                 {
                     Console.WriteLine($"Отправитель {assignedId} пытается получить доступ к чужому.");
                     var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
@@ -423,20 +432,57 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
             }
             else if (msg != null && msg.Type == PacketType.SendingGroupKey)
             {
-                var payload = Deser.DeserJson<GroupKeyPayload>(msg.PayLoad);
-                if (payload != null && _clients.TryGetValue(payload.TargetUserId, out var targetConn))
+                GroupKeyPayload? payload;
+                try
                 {
-                    if (targetConn.Client.Connected)
+                    payload = Deser.DeserJson<GroupKeyPayload>(msg.PayLoad);
+                }
+                catch (JsonException)
+                {
+                    Console.WriteLine($"[SECURITY] {assignedId}: SendingGroupKey с мусорным payload. Пакет отброшен.");
+                    continue;
+                }
+                if (payload == null || payload.SenderId != assignedId)
+                {
+                    Console.WriteLine($"[SECURITY] {assignedId}: SendingGroupKey с чужим/невалидным SenderId. Пакет отброшен.");
+                    continue;
+                }
+                if (_activeGroups.TryGetValue(payload.GroupId, out var keyGroup)
+                    && keyGroup.Members.Contains(assignedId)
+                    && keyGroup.Members.Contains(payload.TargetUserId))
+                {
+                    if (_clients.TryGetValue(payload.TargetUserId, out var targetConn))
                     {
-                        var finalJson = Deser.SerJson(msg);
-                        await targetConn.SendAsync(finalJson);
+                        if (targetConn.Client.Connected)
+                        {
+                            var finalJson = Deser.SerJson(msg);
+                            await targetConn.SendAsync(finalJson);
+                        }
                     }
+                }
+                else
+                {
+                    Console.WriteLine($"{assignedId}: SendingGroupKey вне своей группы ({payload.GroupId}). Пакет отброшен.");
                 }
             }
             else if (msg != null && msg.Type == PacketType.GroupMessage)
             {
-                var deseredPayload = Deser.DeserJson<GroupMessagePayload>(msg.PayLoad);
-                if (deseredPayload != null && _activeGroups.TryGetValue(deseredPayload.GroupId, out var group))
+                GroupMessagePayload? deseredPayload;
+                try
+                {
+                    deseredPayload = Deser.DeserJson<GroupMessagePayload>(msg.PayLoad);
+                }
+                catch (JsonException)
+                {
+                    Console.WriteLine($"{assignedId}: GroupMessage с мусорным payload. Пакет отброшен.");
+                    continue;
+                }
+                if (deseredPayload == null || deseredPayload.SenderId != assignedId)
+                {
+                    Console.WriteLine($"{assignedId}: GroupMessage с чужим SenderId. Пакет отброшен.");
+                    continue;
+                }
+                if (_activeGroups.TryGetValue(deseredPayload.GroupId, out var group) && group.Members.Contains(assignedId))
                 {
                     var sering = Deser.SerJson(msg);
                     foreach (var memberId in group.Members)
@@ -448,6 +494,10 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                         }
                     }
                     await msgRepo.SaveGroupMessageAsync(deseredPayload);
+                }
+                else
+                {
+                    Console.WriteLine($"[SECURITY] {assignedId} не состоит в группе {deseredPayload.GroupId} (или группа не существует). Пакет отброшен.");
                 }
 
             }

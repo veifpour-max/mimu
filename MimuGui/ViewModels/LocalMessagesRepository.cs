@@ -226,6 +226,38 @@ public class LocalMessagesRepository
         return history;
     }
 
+    public async Task<List<Message>> GetAllMessagesWithAnyStatusAsync(Guid myId, Guid targetId, MessageStatus status)
+    {
+        var history = new List<Message>();
+        var query = "SELECT Id, Text, SenderId, ReceiverId, SentAt, Status FROM LocalMessages WHERE (Status = @status) ORDER BY SentAt ASC;";
+        using (var connection = new SqliteConnection(_sqlpath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@status", status);
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        var msgId = Guid.Parse(reader.GetString(0));
+                        var text = reader.GetString(1);
+                        var sender = Guid.Parse(reader.GetString(2));
+                        var receiver = Guid.Parse(reader.GetString(3));
+                        var sentAt = DateTime.Parse(reader.GetString(4));
+                        var msgStatus = (MessageStatus)reader.GetInt32(5);
+
+                        var message = new Message(text, sender, receiver, MessageType.Text) {Id = msgId, SentAt = sentAt, Status = msgStatus};
+                        history.Add(message);
+                    }
+
+                }
+            }
+
+        }
+        return history;
+    }
+
     public async Task<List<Guid>> GetLocalContactsAsync(Guid myId)
     {
         var contacts = new List<Guid>();

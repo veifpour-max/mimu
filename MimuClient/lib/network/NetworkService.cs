@@ -136,6 +136,10 @@ public class NetworkService
         {
             return true;
         }
+        if (finalAnswer != null && finalAnswer.PayLoad.StartsWith("ERROR|"))
+        {
+            throw new Exception("Сервер выдал ошибку регистрации");
+        }
         return false;
     }
 
@@ -165,6 +169,10 @@ public class NetworkService
         var deserAnswer = Deser.DeserJson<NetworkPacket>(waiting);
         if (deserAnswer != null)
         {
+            if (deserAnswer.PayLoad != null && deserAnswer.PayLoad.StartsWith("ERROR|"))
+            {
+                return null;
+            }
             var desering = Deser.DeserJson<User>(deserAnswer.PayLoad);
             return desering;
         }
