@@ -140,6 +140,17 @@ public class SessionManager
         }
     }
 
+    // Вызывать только когда сервер точно НЕ зарегистрировал аккаунт
+    // (явный отказ, а не потерянный ответ): иначе аккаунт-сирота на сервере
+    // останется без приватного ключа навсегда
+    public void DeletePrivateKey()
+    {
+        if (File.Exists(_keyPath))
+        {
+            File.Delete(_keyPath);
+        }
+    }
+
     public void SavePrivateKey(byte[] key)
     {
         if (OperatingSystem.IsWindows())

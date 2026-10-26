@@ -1573,19 +1573,20 @@ public partial class MainWindowViewModel : ViewModelBase
             using var crypto = new CryptoEngine();
             var publicKey = crypto.GetMyPublicKeyBase64();
             var privateKey = crypto.ExportMyPrivateKey();
+            _sessionManager.SavePrivateKey(privateKey);
             var payload = new RegisterPayload(RegName, RegUsername, RegPassword, publicKey);
             try
             {
                 var success = await _net.RegisterAsync(payload);
                 if (success)
                 {
-                    _sessionManager.SavePrivateKey(privateKey);
                     StatusMessage = "Успешная регистрация, теперь войдите";
                     SwitchToLogin();
                     Username = RegUsername;
                 }
                 else
                 {
+                    _sessionManager.DeletePrivateKey();
                     StatusMessage = "Ошибка регистрации. Возможно, username занят.";
                 }
             }

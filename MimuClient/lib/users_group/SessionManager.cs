@@ -139,6 +139,14 @@ public class SessionManager
         }
     }
 
+    public void DeletePrivateKey()
+    {
+        if (File.Exists(_keyPath))
+        {
+            File.Delete(_keyPath);
+        }
+    }
+
     public void SavePrivateKey(byte[] key)
     {
         if (OperatingSystem.IsWindows())
