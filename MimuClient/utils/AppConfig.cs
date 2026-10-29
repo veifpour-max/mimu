@@ -16,12 +16,17 @@ public static class ConfigLoader
         if (!File.Exists(ConfigPath))
         {
             var defaultConfig = new AppConfig();
-            var json = JsonSerializer.Serialize(defaultConfig, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(ConfigPath, json);
+            Save(defaultConfig);
             return defaultConfig;
         }
 
         var text = File.ReadAllText(ConfigPath);
         return JsonSerializer.Deserialize<AppConfig>(text) ?? new AppConfig();
+    }
+
+    public static void Save(AppConfig config)
+    {
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(ConfigPath, json);
     }
 }

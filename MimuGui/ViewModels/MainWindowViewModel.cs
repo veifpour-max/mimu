@@ -31,6 +31,8 @@ public partial class MainWindowViewModel : ViewModelBase
         IsLoginVisible = true;
         IsRegisterVisible = false;
         IsMainVisible = false;
+        ServerIp = _config.ServerIp;
+        ServerPort = _config.ServerPort.ToString();
         _net.OnMessageReceived += HandleIncomingMessage;
         _net.OnStateChanged += (state) => StatingConnection(state);
         _net.OnMessageStatusChanged += HandleStatusChanged;
@@ -477,6 +479,9 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool isSearchVisible = false;
     private string _search;
     public bool _isGroupVisible;
+    private string _serverIp = "";
+    private string _serverPort = "";
+    private bool _isServerConfigMenuVisible = false;
     private bool _isUploading;
     private string _newMessageText;
     private IBrush indicator = Palette.Gray;
@@ -497,10 +502,25 @@ public partial class MainWindowViewModel : ViewModelBase
         get => _isUploading;
         set => SetProperty(ref _isUploading, value);
     }
+    public bool IsServerConfigMenuVisible
+    {
+        get => _isServerConfigMenuVisible;
+        set => SetProperty(ref _isServerConfigMenuVisible, value);
+    }
+    public string ServerIp
+    {
+        get => _serverIp;
+        set => SetProperty(ref _serverIp, value);
+    }
+    public string ServerPort
+    {
+        get => _serverPort;
+        set => SetProperty(ref _serverPort, value);
+    }
 
     public Guid MyId => _myId;
 
-    private string _myUsername = "ты";
+    private string _myUsername = "Вы";
     public string MyUsername
     {
         get => _myUsername;
@@ -1200,6 +1220,35 @@ public partial class MainWindowViewModel : ViewModelBase
         var packet = new NetworkPacket(PacketType.GroupMessage, serPayload);
         await _net.SendPacket(packet);
         return payload;
+    }
+    public void ToggleServerConfigMenu()
+    {
+        IsServerConfigMenuVisible = !IsServerConfigMenuVisible;
+        if (IsServerConfigMenuVisible)
+        {
+            ServerIp = _config.ServerIp;
+            ServerPort = _config.ServerPort.ToString();
+        }
+    }
+
+    public void ApplyServerConfig()
+    {
+        if (!shTools.check(ServerIp))
+        {
+            StatusMessage = "Адрес сервера не может быть пустым";
+            return;
+        }
+        if (!int.TryParse(ServerPort, out var port))
+        {
+            StatusMessage = "Порт должен быть числом от 1 до 65535";
+            return;
+        }
+
+        _config.ServerIp = ServerIp.Trim();
+        _config.ServerPort = port;
+        ConfigLoader.Save(_config);
+        IsServerConfigMenuVisible = false;
+        StatusMessage = $"Сервер: {_config.ServerIp}:{_config.ServerPort}. Вступит в силу при следующем подключении";
     }
 
     public async Task LoadGroupHistory(Guid groupId)

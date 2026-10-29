@@ -36,7 +36,28 @@ public class NetworkService
             using var cts = new CancellationTokenSource(5000);
             await _client.ConnectAsync(ip, port).WaitAsync(cts.Token);
             var stream = _client.GetStream();
-            var sslStream = new SslStream(stream, false, (sender, cert, chain, errors) => true);
+            var sslStream = new SslStream(stream, false, (sender, cert, chain, errors) =>
+            {
+                if (cert == null) return false;
+                string pin;
+                try
+                {
+                    using var cert2 = new System.Security.Cryptography.X509Certificates.X509Certificate2(cert);
+                    pin = ServerPinStore.ComputePin(cert2);
+                }
+                catch
+                {
+                    return false;
+                }
+
+                string? known = ServerPinStore.Get(ip, port);
+                if (known == null)
+                {
+                    ServerPinStore.Set(ip, port, pin);
+                    return true;
+                }
+                return string.Equals(known, pin, StringComparison.OrdinalIgnoreCase);
+            });
             await sslStream.AuthenticateAsClientAsync(ip).WaitAsync(cts.Token);
 
             _reader = new StreamReader(sslStream);
@@ -259,8 +280,6 @@ public class NetworkService
                 if (ex is IOException || ex is ObjectDisposedException)
                 {
                     OnStateChanged?.Invoke(ConnectionStates.Disconnected);
-                    // без этого _writer останется не-null, и первая отправка после
-                    // разрыва молча уйдет в мертвый сокет вместо исключения
                     DisposeOldResources();
                     break;
                 }

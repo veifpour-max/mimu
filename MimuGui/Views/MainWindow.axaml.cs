@@ -970,6 +970,51 @@ public partial class MainWindow : Window
                                                     Height = 18,
                                                     Stretch = Stretch.Uniform,
                                                     Fill = Palette.OnSurfaceVariant
+                                                },
+                                                [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.ToggleServerConfigMenu))
+
+                                            },
+                                            new Border
+                                            {
+                                                Width = 220,
+                                                Background = Palette.SurfaceContainer,
+                                                BorderBrush = Palette.OutlineVariant,
+                                                BorderThickness = new Avalonia.Thickness(1),
+                                                CornerRadius = new Avalonia.CornerRadius(10),
+                                                Padding = new Avalonia.Thickness(12),
+                                                HorizontalAlignment = HorizontalAlignment.Right,
+                                                VerticalAlignment = VerticalAlignment.Center,
+                                                Margin = Avalonia.Thickness.Parse("0,0,8,0"),
+                                                [!Border.IsVisibleProperty] = new Binding(nameof(MainWindowViewModel.IsServerConfigMenuVisible)),
+                                                Child = new StackPanel
+                                                {
+                                                    Spacing = 8,
+                                                    Children =
+                                                    {
+                                                        new TextBox
+                                                        {
+                                                            [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.ServerIp)),
+                                                            PlaceholderText = "Айпи сервера",
+                                                            Background = Palette.SurfaceContainerLowest,
+                                                            Foreground = Palette.OnSurface,
+                                                        },
+                                                        new TextBox
+                                                        {
+                                                            [!TextBox.TextProperty] = new Binding(nameof(MainWindowViewModel.ServerPort)),
+                                                            PlaceholderText = "Порт сервера",
+                                                            Background = Palette.SurfaceContainerLowest,
+                                                            Foreground = Palette.OnSurface,
+                                                        },
+                                                        new Button
+                                                        {
+                                                            Content = "Сохранить",
+                                                            Height = 30,
+                                                            Background = Palette.OnSurface,
+                                                            Foreground = Palette.Background,
+                                                            HorizontalContentAlignment = HorizontalAlignment.Center,
+                                                            [!Button.CommandProperty] = new Binding(nameof(MainWindowViewModel.ApplyServerConfig))
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

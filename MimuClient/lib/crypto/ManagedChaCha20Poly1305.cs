@@ -64,17 +64,16 @@ public static class ManagedChaCha20Poly1305
         for (int offset = 0; offset < message.Length; offset += 16)
         {
             int len = Math.Min(16, message.Length - offset);
-            // блок дополняется единичным байтом 0x01 после данных (RFC 8439 §2.5.2)
             byte[] block = new byte[len + 2];
             Array.Copy(message, offset, block, 0, len);
             block[len] = 1;
-            BigInteger n = new BigInteger(block); // little-endian, старший ноль гарантирует положительность
+            BigInteger n = new BigInteger(block);
             acc = (acc + n) * r % prime;
         }
         acc += s;
         BigInteger low128 = acc & ((BigInteger.One << 128) - 1);
         byte[] tag = new byte[TagSize];
-        byte[] accBytes = low128.ToByteArray(); // little-endian, возможен лишний знаковый ноль
+        byte[] accBytes = low128.ToByteArray();
         Array.Copy(accBytes, tag, Math.Min(accBytes.Length, TagSize));
         return tag;
     }
