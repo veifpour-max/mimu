@@ -144,10 +144,14 @@ public class UsersRepository
                         var passHash = reader.GetString(3);
                         var salt = reader.GetString(4);
 
-                        var expectedHash = Crypto.SHA256Encode(clientPassword + salt);
-
-                        if (expectedHash == passHash)
+                        if (Crypto.VerifyPassword(clientPassword, passHash, salt))
                         {
+                            // lazy-перехеш: legacy SHA256-хеш мигрирует в Argon2id при первом успешном логине
+                            if (Crypto.IsLegacyHash(passHash))
+                            {
+                                await UpdatePasswordHashAsync(id, Crypto.Argon2Hash(clientPassword));
+                            }
+
                             var user = new User(name, uname) { Id = id };
                             user.Status = UserStatus.Online;
                             return user;
@@ -157,6 +161,21 @@ public class UsersRepository
             }
         }
         return null;
+    }
+
+    public async Task UpdatePasswordHashAsync(Guid id, string passwordHash)
+    {
+        const string query = "UPDATE Users SET PasswordHash = @hash WHERE Id = @id;";
+        using (var connection = new SqliteConnection(_sqlPath))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqliteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@hash", passwordHash);
+                command.Parameters.AddWithValue("@id", id.ToString());
+                await command.ExecuteNonQueryAsync();
+            }
+        }
     }
 
     public async Task<User?> GetUserById(Guid id)
@@ -190,7 +209,7 @@ public class UsersRepository
     {
         var existingUser = await FindByUsername(username);
         var salt = Guid.NewGuid().ToString("N");
-        var hash = Crypto.SHA256Encode(password + salt);
+        var hash = Crypto.Argon2Hash(password);
         if (existingUser != null)
         {
             return false;
