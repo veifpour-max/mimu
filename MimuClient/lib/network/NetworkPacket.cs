@@ -19,7 +19,12 @@ public enum PacketType
     CreateGroup,
     SendingGroupKey,
     GetMyGroups,
-    GetGroupHistory
+    GetGroupHistory,
+    GetTurnCredentials,
+    CallOffer,
+    CallAnswer,
+    IceCandidate,
+    CallHangup
 }
 
 public class NetworkPacket

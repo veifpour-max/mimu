@@ -1,18 +1,13 @@
 ﻿using System.Collections.Concurrent;
-using System.Formats.Asn1;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using LocalMimu.Models;
 using LocalMimu.Repositories;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
-using System.Data;
-using System.Text.RegularExpressions;
-using Microsoft.Extensions.Options;
-
+using System.Security.Cryptography;
+using System.Text;
 
 ConcurrentDictionary<Guid, ClientConnection> _clients = new();
 ConcurrentDictionary<string, int> _failedAttempts = new();
@@ -20,6 +15,9 @@ ConcurrentDictionary<string, DateTime> _bannedIps = new();
 ConcurrentDictionary<Guid, GroupChat> _activeGroups = new();
 
 ServerConfig serverConf = ServerConfigLoader.Load();
+
+byte[] TurnSharedSecret = Encoding.UTF8.GetBytes(serverConf.TurnSharedSecret);
+string TurnServerUrl = serverConf.TurnServerUrl;
 
 LimitedReadLine limitedRead = new();
 
@@ -498,6 +496,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 else
                 {
                     Console.WriteLine($"[SECURITY] {assignedId} не состоит в группе {deseredPayload.GroupId} (или группа не существует). Пакет отброшен.");
+                    continue;
                 }
 
             }
@@ -514,12 +513,58 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                     await connection.SendAsync(finalAnswer);
                 }
             }
+            else if (msg != null && msg.Type == PacketType.GetTurnCredentials)
+            {
+                var turnDto = TurnCredentialIssuer.Issue(assignedId, TurnSharedSecret, TurnServerUrl);
+                var answer = new NetworkPacket(PacketType.ServerResponse, Deser.SerJson(turnDto));
+                answer.RequestId = msg.RequestId;
+                await connection.SendAsync(Deser.SerJson(answer));
+            }
+            else if (msg != null && (msg.Type == PacketType.CallOffer || msg.Type == PacketType.CallAnswer
+                || msg.Type == PacketType.IceCandidate || msg.Type == PacketType.CallHangup))
+            {
+                CallSignalPayload? desering;
+                try
+                {
+                    desering = Deser.DeserJson<CallSignalPayload?>(msg.PayLoad);
+                }
+                catch
+                {
+                    Console.WriteLine($"[SECURITY] {assignedId}: мусорный payload звонкового пакета. Пакет отброшен.");
+                    continue;
+                }
+                if (desering == null || desering.SenderId != assignedId)
+                {
+                    var alert = new NetworkPacket(PacketType.ServerResponse, "ERROR|FORBIDDEN");
+                    alert.RequestId = msg.RequestId;
+                    var ser = Deser.SerJson(alert);
+                    await connection.SendAsync(ser);
+                    continue;
+                }
+                if (_clients.TryGetValue(desering.TargetUserId, out var target) && target != null && target.Client.Connected)
+                {
+                    var ser = Deser.SerJson(msg);
+                    await target.SendAsync(ser);
+                }
+                else if (msg.Type == PacketType.CallOffer)
+                {
+                    desering.SenderId = desering.TargetUserId;
+                    desering.TargetUserId = assignedId;
+                    desering.Data = "USER_OFFLINE";
+                    var ser = Deser.SerJson(desering);
+                    var hungUp = new NetworkPacket(PacketType.CallHangup, ser);
+                    hungUp.RequestId = msg.RequestId;
+                    var final = Deser.SerJson(hungUp);
+                    await connection.SendAsync(final);
+                }
+            }
+
 
 
         }
-        catch (Exception handleEx)
+        catch (Exception ex)
         {
-            Console.WriteLine($"[Server] Ошибка обработки клиента: {handleEx}");
+            Console.WriteLine($"[Server] Ошибка обработки клиента: {ex}");
             if (assignedId != Guid.Empty)
             {
                 _clients.TryRemove(assignedId, out _);

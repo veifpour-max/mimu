@@ -9,6 +9,8 @@ public class ServerConfig
     public string MinioUser { get; set; } = "your_minio_user";
     public string MinioPass { get; set; } = "your_password";
     public string BucketName { get; set; } = "name_of_your_bucket";
+    public string TurnSharedSecret { get; set; } = "dev-turn-secret-change-me-in-prod";
+    public string TurnServerUrl { get; set; } = "turn:127.0.0.1:3478?transport=tcp";
 }
 
 public static class ServerConfigLoader

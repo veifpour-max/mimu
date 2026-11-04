@@ -20,6 +20,8 @@ public class NetworkService
 
     public event Action<GroupKeyPayload>? OnGroupKeyReceived;
 
+    public event Action<PacketType, CallSignalPayload>? OnCallSignalReceived;
+
     public event Action<Guid, MessageStatus>? OnMessageStatusChanged;
 
     ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
@@ -201,6 +203,21 @@ public class NetworkService
 
 
     }
+    public async Task SendCallSignalAsync(PacketType type, CallSignalPayload payload)
+    {
+        var ser = Deser.SerJson(payload);
+        var packet = new NetworkPacket(type, ser);
+        await SendPacket(packet);
+    }
+    public async Task<TurnCredentials?> GetTurnCredentialsAsync()
+    {
+        var turnCredentials = new TurnCredentials();
+        var ser = Deser.SerJson(turnCredentials);
+        var packet = new NetworkPacket(PacketType.GetTurnCredentials, ser);
+        var answer = await SendAndWaitAsync(packet);
+        var deseredAnswer = Deser.DeserJson<TurnCredentials?>(answer);
+        return deseredAnswer;
+    }
     public void StartListening()
     {
         if (_isListening) return;
@@ -271,6 +288,22 @@ public class NetworkService
                     if (payload != null)
                     {
                         OnGroupMessageReceived?.Invoke(payload);
+                    }
+                }
+                if (msg != null && (msg.Type == PacketType.CallOffer || msg.Type == PacketType.CallAnswer || msg.Type == PacketType.IceCandidate || msg.Type == PacketType.CallHangup))
+                {
+                    try
+                    {
+                        var callSignal = Deser.DeserJson<CallSignalPayload>(msg.PayLoad);
+                        if (callSignal != null)
+                        {
+                            OnCallSignalReceived?.Invoke(msg.Type, callSignal);
+                        }
+                    }
+                    catch
+                    {
+                        Console.WriteLine("[CALL] Кривой payload звонкового пакета — отброшен.");
+                        continue;
                     }
                 }
 
