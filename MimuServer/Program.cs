@@ -289,7 +289,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
 
                 foreach (var user in checking)
                 {
-                    var u = await repo.GetUserById(user);
+                    User? u = await repo.GetUserById(user);
                     if (u != null)
                     {
                         contactUser.Add(u);
@@ -530,7 +530,7 @@ async Task HandleClientAsync(TcpClient client, MessagesRepository messagesReposi
                 }
                 catch
                 {
-                    Console.WriteLine($"[SECURITY] {assignedId}: мусорный payload звонкового пакета. Пакет отброшен.");
+                    Console.WriteLine($"[SECURITY] {assignedId}: мусорный payload пакета. Пакет отброшен.");
                     continue;
                 }
                 if (desering == null || desering.SenderId != assignedId)
